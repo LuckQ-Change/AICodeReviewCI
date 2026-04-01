@@ -1,0 +1,34 @@
+{
+  "repo": {
+    "path": "C:/Users/Administrator/Desktop/TTT/YourRepoHere" 
+  },
+  "model": {
+    "provider": "ollama",
+    "options": {
+      "endpoint": "http://localhost:11434/api/generate",
+      "model": "qwen2.5-coder:latest"
+    }
+  },
+  "notifications": {
+    "lark": { "enabled": false, "webhook": "" },
+    "wecom": { "enabled": false, "webhook": "" },
+    "email": {
+      "enabled": false,
+      "smtp": { "host": "", "port": 465, "secure": true, "user": "", "pass": "" },
+      "from": "AI Code Review <noreply@example.com>"
+    }
+  },
+  "mention_map": {
+    "email_to_lark_open_id": {},
+    "email_to_wecom_userid": {}
+  },
+  "schedule": {
+    "intervalMinutes": 60,
+    "dailyTime": "18:00",
+    "cron": ""
+  },
+  "review": {
+    "maxSnippetsPerCommit": 2,
+    "maxLinesPerSnippet": 20
+  }
+}

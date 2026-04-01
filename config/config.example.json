@@ -1,0 +1,58 @@
+{
+  "repo": {
+    "path": "C:/path/to/your/repo"
+  },
+  "model": {
+    "provider": "openai",
+    "options": {
+      "apiKey": "YOUR_OPENAI_API_KEY",
+      "model": "gpt-4o-mini"
+    }
+  },
+  "notifications": {
+    "lark": {
+      "enabled": false,
+      "webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/xxxx"
+    },
+    "wecom": {
+      "enabled": false,
+      "webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx"
+    },
+    "email": {
+      "enabled": false,
+      "smtp": {
+        "host": "smtp.example.com",
+        "port": 465,
+        "secure": true,
+        "user": "noreply@example.com",
+        "pass": "YOUR_SMTP_PASSWORD"
+      },
+      "from": "AI Code Review <noreply@example.com>"
+    },
+    "reportStyle": "issues_only",
+    "snippetFormat": "no_headers",
+    "skipWhenNoSnippets": true
+  },
+  "mention_map": {
+    "email_to_lark_open_id": {
+      "dev1@example.com": "ou_xxx"
+    },
+    "email_to_wecom_userid": {
+      "dev1@example.com": "zhangsan"
+    }
+  },
+  "schedule": {
+    "intervalMinutes": 60,
+    "dailyTime": "18:00",
+    "cron": "" 
+  },
+  "review": {
+    "maxSnippetsPerCommit": 2,
+    "maxLinesPerSnippet": 20,
+    "include": ["src/**/*.{js,ts}", "lib/**/*.js"],
+    "exclude": ["src/vendor/**", "**/*.md"]
+  },
+  "rules": {
+    "dir": "rules"
+  }
+}

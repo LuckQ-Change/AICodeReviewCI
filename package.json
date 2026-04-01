@@ -1,0 +1,20 @@
+{
+  "name": "ai-code-review-ci",
+  "author": "WJQ",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI驱动的代码审核CI工具，支持规则.md、多渠道通知与定时任务",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.13",
+    "openai": "^4.57.0",
+    "simple-git": "^3.27.0"
+  }
+}
