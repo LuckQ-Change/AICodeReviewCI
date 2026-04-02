@@ -6,7 +6,7 @@
     "provider": "openai",
     "options": {
       "baseURL": "https://api.hunyuan.cloud.tencent.com/v1",
-      "apiKey": "sk-3yK8BtlPSc1z6ZxkjZYSGLzkikM7AIfgNJsj5dQ8TABgQjgh",
+      "apiKey": "sk-3yK8BtlPSc1z6ZxkjZYSGLzkikM7AIfgNJsj5dQ8TABgQjgh", 
       "model": "hunyuan-pro"
     }
   },
