@@ -17,7 +17,7 @@
       "secret": "",
       "appId": "cli_a944b190f1b8dbc2",
       "appSecret": "19pcXNSJxc4C6YxF2BQjKb6sUI5ewnhW",
-      "chatId": ""
+      "chatId": "oc_d51da58ce6912d1cc52ddd4c10ff9f95"
     },
     "wecom": { "enabled": false, "webhook": "" },
     "email": {
