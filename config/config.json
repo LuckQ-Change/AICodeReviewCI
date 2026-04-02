@@ -14,7 +14,7 @@
     "lark": {
       "enabled": true,
       "webhook": "https://www.feishu.cn/flow/api/trigger-webhook/94d47dc86434fce4bb85fe953a8ccec8",
-      "secret": "",
+      "secret":  "",
       "appId": "",
       "appSecret": "",
       "chatId": ""
