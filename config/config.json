@@ -1,6 +1,6 @@
 {
   "repo": {
-    "path": "C:/Users/Administrator/Desktop/TTT/YourRepoHere" 
+    "path": "D:\\DDD\\AICodeReviewCI" 
   },
   "model": {
     "provider": "ollama",
@@ -23,7 +23,7 @@
     "email_to_wecom_userid": {}
   },
   "schedule": {
-    "intervalMinutes": 60,
+    "intervalMinutes": 1,
     "dailyTime": "18:00",
     "cron": ""
   },

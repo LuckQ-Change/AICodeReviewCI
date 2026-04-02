@@ -19,10 +19,10 @@ export function scheduleJobs({ config, onTick }) {
         await onTick(since);
         since = Date.now();
       } catch (e) {
-        console.error('[scheduler] interval 任务失败', e);
+        console.error('[调度器] interval 任务失败', e);
       }
     });
-    console.log(`[scheduler] 已注册每${m}分钟运行一次`);
+    console.log(`[调度器] 已注册每${m}分钟运行一次`);
   }
 
   // dailyTime
@@ -34,10 +34,10 @@ export function scheduleJobs({ config, onTick }) {
         todayStart.setHours(0, 0, 0, 0);
         await onTick(todayStart.getTime());
       } catch (e) {
-        console.error('[scheduler] 每日任务失败', e);
+        console.error('[调度器] 每日任务失败', e);
       }
     });
-    console.log(`[scheduler] 已注册每日 ${config.schedule.dailyTime} 运行，审核当天到此时间点的提交`);
+    console.log(`[调度器] 已注册每日 ${config.schedule.dailyTime} 运行，审核当天到此时间点的提交`);
   }
 
   // custom cron
@@ -48,9 +48,9 @@ export function scheduleJobs({ config, onTick }) {
         await onTick(since);
         since = Date.now();
       } catch (e) {
-        console.error('[scheduler] cron任务失败', e);
+        console.error('[调度器] cron任务失败', e);
       }
     });
-    console.log(`[scheduler] 已注册cron表达式: ${cronExp}`);
+    console.log(`[调度器] 已注册cron表达式: ${cronExp}`);
   }
 }
