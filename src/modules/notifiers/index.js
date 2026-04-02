@@ -57,17 +57,33 @@ export async function notifyResults({ config, results }) {
 
     const larkCfg = config.notifications?.lark;
     if (larkCfg?.enabled) {
-      if (larkCfg.webhook) {
-        await sendToLark({ webhook: larkCfg.webhook, message, openId: larkOpenId, authorName: r.commit.authorName });
-      } else {
-        console.warn('[notifiers] 已启用飞书但缺少webhook，已跳过发送');
+      try {
+        await sendToLark({
+          // webhook 模式
+          webhook: larkCfg.webhook,
+          secret: larkCfg.secret,
+          // app 模式
+          appId: larkCfg.appId,
+          appSecret: larkCfg.appSecret,
+          chatId: larkCfg.chatId,
+          // 通用参数
+          message,
+          openId: larkOpenId,
+          authorName: r.commit.authorName
+        });
+      } catch (err) {
+        console.error('[notifiers] 飞书发送失败:', err.response?.data || err.message);
       }
     }
 
     const wecomCfg = config.notifications?.wecom;
     if (wecomCfg?.enabled) {
       if (wecomCfg.webhook) {
-        await sendToWeCom({ webhook: wecomCfg.webhook, message, userId: wecomUserId, authorName: r.commit.authorName });
+        try {
+          await sendToWeCom({ webhook: wecomCfg.webhook, message, userId: wecomUserId, authorName: r.commit.authorName });
+        } catch (err) {
+          console.error('[notifiers] 企业微信发送失败:', err.response?.data || err.message);
+        }
       } else {
         console.warn('[notifiers] 已启用企业微信但缺少webhook，已跳过发送');
       }
@@ -76,9 +92,13 @@ export async function notifyResults({ config, results }) {
     const emailCfg = config.notifications?.email;
     if (emailCfg?.enabled) {
       if (emailCfg.smtp?.host && emailCfg.from) {
-        const style = config.notifications?.reportStyle || 'full';
-        const subject = ['snippets_only','issues_only','issues_with_snippets'].includes(style) ? 'AI代码审核' : `AI代码审核: ${r.commit.message}`;
-        await sendEmail({ smtp: emailCfg.smtp, from: emailCfg.from, to: authorEmail, subject, text: message });
+        try {
+          const style = config.notifications?.reportStyle || 'full';
+          const subject = ['snippets_only','issues_only','issues_with_snippets'].includes(style) ? 'AI代码审核' : `AI代码审核: ${r.commit.message}`;
+          await sendEmail({ smtp: emailCfg.smtp, from: emailCfg.from, to: authorEmail, subject, text: message });
+        } catch (err) {
+          console.error('[notifiers] 邮件发送失败:', err.message);
+        }
       } else {
         console.warn('[notifiers] 已启用邮件但缺少SMTP或from，已跳过发送');
       }

@@ -12,7 +12,11 @@
   "notifications": {
     "lark": {
       "enabled": false,
-      "webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/xxxx"
+      "webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/xxxx",
+      "secret": "",
+      "appId": "",
+      "appSecret": "",
+      "chatId": ""
     },
     "wecom": {
       "enabled": false,

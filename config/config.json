@@ -3,14 +3,22 @@
     "path": "D:\\DDD\\AICodeReviewCI" 
   },
   "model": {
-    "provider": "ollama",
+    "provider": "openai",
     "options": {
-      "endpoint": "http://localhost:11434/api/generate",
-      "model": "qwen2.5-coder:latest"
+      "baseURL" : "https://api.hunyuan.cloud.tencent.com/v1",
+      "apiKey" : "sk-3yK8BtlPSc1z6ZxkjZYSGLzkikM7AIfgNJsj5dQ8TABgQjgh",
+      "model" : "hunyuan-pro"
     }
   },
   "notifications": {
-    "lark": { "enabled": false, "webhook": "" },
+    "lark": {
+      "enabled": true,
+      "webhook": "",
+      "secret": "",
+      "appId": "cli_a944b190f1b8dbc2",
+      "appSecret": "19pcXNSJxc4C6YxF2BQjKb6sUI5ewnhW",
+      "chatId": ""
+    },
     "wecom": { "enabled": false, "webhook": "" },
     "email": {
       "enabled": false,

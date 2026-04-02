@@ -41,7 +41,10 @@
   - `ONE_SHOT=true REPO_PATH="..." node src/index.js`（单次执行，类似CI行为）。
 
 ## 通知配置速查
-- 飞书：开启 `notifications.lark.enabled` 并填写 `webhook`；如配置 `mention_map.email_to_lark_open_id`，消息会以 `@作者名` 标注并可扩展精确@能力。
+- 飞书：开启 `notifications.lark.enabled`。
+  - **Webhook 模式**：填写 `webhook`（及可选 `secret` 签名）；
+  - **App 模式**：填写 `appId`、`appSecret` 及 `chatId`（发送至群）或 `openId`（发送至用户）；
+  - 如配置 `mention_map.email_to_lark_open_id`，消息会以 `<at user_id="...">` 方式精确 @作者。
 - 企业微信：开启 `notifications.wecom.enabled` 并填写 `webhook`；在 `mention_map.email_to_wecom_userid` 配置邮箱到 `userid`，消息中使用 `<@userid>` 精确@作者。
 - 邮件：开启 `notifications.email.enabled` 并设置 `smtp` 与 `from`，收件人自动取作者邮箱。
 - 报告样式：通过 `notifications.reportStyle` 控制输出内容：
@@ -141,7 +144,10 @@ AI代码审核结果
 - 可按模块拆分更多规则文件（如 `performance.md`、`security.md`），工具会自动加载全部 `.md` 规则。
 
 ## 通知与@作者
-- 飞书：通过群机器人`webhook`发送文本消息；如需@作者，请配置`mention_map.email_to_lark_open_id`
+- 飞书：支持两种模式：
+  - **群机器人模式**：开启 `notifications.lark.enabled` 并填写 `webhook`（可选 `secret` 签名）。
+  - **应用机器人模式**：填写 `appId`、`appSecret` 以及 `chatId`（群 ID）或 `openId`（用户 ID）。
+  - @作者：配置 `mention_map.email_to_lark_open_id` 后，消息会以 `<at user_id="...">` 方式精确 @作者。
 - 企业微信：通过群机器人`webhook`发送`markdown`消息；@作者需在内容中加入`<@userid>`，请配置`mention_map.email_to_wecom_userid`
 - 邮件：通过SMTP直接发送文本到作者邮箱
 
