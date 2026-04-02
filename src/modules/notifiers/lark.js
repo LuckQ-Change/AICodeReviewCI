@@ -66,8 +66,22 @@ export async function sendToLark(options) {
     }
 
     const payload = {
-      msg_type: 'text',
-      content: { text }
+      msg_type: 'interactive',
+      card: {
+        header: {
+          title: {
+            tag: 'plain_text',
+            content: 'AI 代码审核结果'
+          },
+          template: 'blue'
+        },
+        elements: [
+          {
+            tag: 'markdown',
+            content: text
+          }
+        ]
+      }
     };
 
     // 签名（如果有）
@@ -114,15 +128,31 @@ export async function sendToLark(options) {
 
       // 群里 @人
       if (chatId && openId) {
-        text = `<at user_id="${openId}">${authorName}</at> ${message}`;
+        text = `<at user_id="${openId}">${authorName}</at>\n${message}`;
       }
+
+      const card = {
+        header: {
+          title: {
+            tag: 'plain_text',
+            content: 'AI 代码审核结果'
+          },
+          template: 'blue'
+        },
+        elements: [
+          {
+            tag: 'markdown',
+            content: text
+          }
+        ]
+      };
 
       const res = await axios.post(
         'https://open.feishu.cn/open-apis/im/v1/messages',
         {
           receive_id: receiveId,
-          msg_type: 'text',
-          content: JSON.stringify({ text })
+          msg_type: 'interactive',
+          content: JSON.stringify(card)
         },
         {
           headers: {
