@@ -1,28 +1,38 @@
 {
   "repo": {
-    "path": "D:\\DDD\\AICodeReviewCI" 
+    "path": "D:\\DDD\\AICodeReviewCI"
   },
   "model": {
     "provider": "openai",
     "options": {
-      "baseURL" : "https://api.hunyuan.cloud.tencent.com/v1",
-      "apiKey" : "sk-3yK8BtlPSc1z6ZxkjZYSGLzkikM7AIfgNJsj5dQ8TABgQjgh",
-      "model" : "hunyuan-pro"
+      "baseURL": "https://api.hunyuan.cloud.tencent.com/v1",
+      "apiKey": "sk-3yK8BtlPSc1z6ZxkjZYSGLzkikM7AIfgNJsj5dQ8TABgQjgh",
+      "model": "hunyuan-pro"
     }
   },
   "notifications": {
     "lark": {
       "enabled": true,
       "webhook": "https://www.feishu.cn/flow/api/trigger-webhook/94d47dc86434fce4bb85fe953a8ccec8",
-      "secret":  "",
+      "secret": "",
       "appId": "",
       "appSecret": "",
-      "chatId": ""
+      "chatId": "",
+      "openId": "oc_0c86578e6d23ef1be54047f4ce859d81"
     },
-    "wecom": { "enabled": false, "webhook": "" },
+    "wecom": {
+      "enabled": false,
+      "webhook": ""
+    },
     "email": {
       "enabled": false,
-      "smtp": { "host": "", "port": 465, "secure": true, "user": "", "pass": "" },
+      "smtp": {
+        "host": "",
+        "port": 465,
+        "secure": true,
+        "user": "",
+        "pass": ""
+      },
       "from": "AI Code Review <noreply@example.com>"
     }
   },
