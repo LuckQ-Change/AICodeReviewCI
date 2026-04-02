@@ -13,11 +13,11 @@
   "notifications": {
     "lark": {
       "enabled": true,
-      "webhook": "",
+      "webhook": "https://www.feishu.cn/flow/api/trigger-webhook/94d47dc86434fce4bb85fe953a8ccec8",
       "secret": "",
-      "appId": "cli_a944b190f1b8dbc2",
-      "appSecret": "19pcXNSJxc4C6YxF2BQjKb6sUI5ewnhW",
-      "chatId": "oc_def3dd32e2210aedc6bec939433340ed"
+      "appId": "",
+      "appSecret": "",
+      "chatId": ""
     },
     "wecom": { "enabled": false, "webhook": "" },
     "email": {
