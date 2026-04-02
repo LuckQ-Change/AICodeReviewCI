@@ -17,8 +17,7 @@
       "secret": "",
       "appId": "",
       "appSecret": "",
-      "chatId": "",
-      "openId": "oc_0c86578e6d23ef1be54047f4ce859d81"
+      "chatId": ""
     },
     "wecom": {
       "enabled": false,
@@ -38,7 +37,7 @@
   },
   "mention_map": {
     "email_to_lark_open_id": {},
-    "email_to_wecom_userid": {}
+    "email_to_wecom_userid": {} 
   },
   "schedule": {
     "intervalMinutes": 1,
