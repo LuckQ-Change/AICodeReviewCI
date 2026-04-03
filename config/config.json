@@ -3,24 +3,25 @@
     "path": "${REPO_PATH}"
   },
   "model": {
-    "provider": "openai",
+    "provider": "${AI_PROVIDER}",
     "options": {
       "baseURL": "${AI_BASE_URL}",
       "apiKey": "${AI_API_KEY}",
-      "model": "hunyuan-pro"
+      "model": "${AI_MODEL}"
     }
   },
   "notifications": {
     "lark": {
-      "enabled": true,
+      "enabled": "${LARK_ENABLED}",
+      "webhook": "${LARK_WEBHOOK}",
       "secret": "${LARK_SECRET}",
       "appId": "${LARK_APP_ID}",
       "appSecret": "${LARK_APP_SECRET}",
       "chatId": "${LARK_CHAT_ID}"
     },
     "wecom": {
-      "enabled": false,
-      "webhook": ""
+      "enabled": "${WECOM_ENABLED}",
+      "webhook": "${WECOM_WEBHOOK}"
     },
     "email": {
       "enabled": false,

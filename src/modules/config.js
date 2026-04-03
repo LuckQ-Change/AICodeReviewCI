@@ -30,10 +30,21 @@ function loadDotEnv() {
  * 递归替换配置对象中的 ${ENV_VAR} 占位符
  */
 function replaceEnvPlaceholders(obj) {
+  const optionalVars = [
+    'LARK_ENABLED', 'LARK_SECRET', 'LARK_WEBHOOK', 'LARK_APP_ID', 'LARK_APP_SECRET', 'LARK_CHAT_ID',
+    'WECOM_ENABLED', 'WECOM_WEBHOOK',
+    'EMAIL_ENABLED', 'EMAIL_SMTP_HOST', 'EMAIL_SMTP_USER', 'EMAIL_SMTP_PASS', 'EMAIL_FROM',
+    'AI_BASE_URL'
+  ];
+  
   if (typeof obj === 'string') {
     return obj.replace(/\${(\w+)}/g, (_, name) => {
       const val = process.env[name];
       if (val === undefined) {
+        // 如果是已知可选的环境变量，不输出警告，直接返回空字符串
+        if (optionalVars.includes(name)) {
+          return '';
+        }
         console.warn(`[config] 环境变量 \${${name}} 未定义，将保留原始占位符。`);
         return `\${${name}}`;
       }
@@ -136,11 +147,20 @@ export async function loadConfig() {
     console.log('[config] model.provider 未配置，已默认为 openai');
   }
 
-  // 3. 清理未替换的占位符（避免 SDK 报错）
+  // 3. 清理未替换的占位符（避免 SDK 报错）并确保 boolean 类型正确
   if (config.model?.options) {
     if (config.model.options.baseURL === '${AI_BASE_URL}') delete config.model.options.baseURL;
     if (config.model.options.apiKey === '${AI_API_KEY}') delete config.model.options.apiKey;
     if (config.model.options.model === '${AI_MODEL}') delete config.model.options.model;
+  }
+
+  // 确保通知渠道的 enabled 为 boolean
+  if (config.notifications) {
+    for (const channel of ['lark', 'wecom', 'email']) {
+      if (config.notifications[channel] && typeof config.notifications[channel].enabled === 'string') {
+        config.notifications[channel].enabled = config.notifications[channel].enabled === 'true';
+      }
+    }
   }
 
   return config;
