@@ -115,25 +115,28 @@ AI代码审核结果
   - `smtp.pass`: 密码（环境变量：`EMAIL_SMTP_PASS`）
 
 ### 如何设置环境变量
-你可以根据操作系统选择以下方式设置环境变量：
+你可以根据操作系统选择以下方式设置环境变量，或者使用 **`.env` 文件**（推荐）。
 
-#### Windows (PowerShell) - 推荐
+#### 方式 A：使用 `.env` 文件 (最推荐，本地持久化)
+1. 在项目根目录创建 `.env` 文件（可参考 `.env.example`）。
+2. 将配置项写入文件：
+   ```env
+   AI_API_KEY="sk-xxxx"
+   LARK_APP_ID="cli_xxxx"
+   LARK_APP_SECRET="xxxx"
+   ```
+3. 直接运行 `node src/index.js`，程序会自动加载。
+
+#### 方式 B：Windows (PowerShell)
 ```powershell
+# 注意：必须在同一个窗口运行！
 $env:AI_API_KEY="sk-xxxx"
 $env:LARK_APP_ID="cli_xxxx"
 $env:LARK_APP_SECRET="xxxx"
 node src/index.js
 ```
 
-#### Windows (CMD)
-```cmd
-set AI_API_KEY=sk-xxxx
-set LARK_APP_ID=cli_xxxx
-set LARK_APP_SECRET=xxxx
-node src/index.js
-```
-
-#### Linux / macOS (Bash/Zsh)
+#### 方式 C：Linux / macOS (Bash/Zsh)
 ```bash
 export AI_API_KEY="sk-xxxx"
 export LARK_APP_ID="cli_xxxx"
@@ -141,7 +144,11 @@ export LARK_APP_SECRET="xxxx"
 node src/index.js
 ```
 
-### 动态占位符支持
+### 常见问题排查
+1. **未识别到变量**：程序启动时会打印 `[config] 识别到环境变量: XXX` 或 `[config] 已从 .env 文件加载环境变量`。如果没有看到此日志，说明变量未注入成功。
+2. **终端会话问题**：环境变量仅在当前窗口有效。如果你在 PowerShell 设置了变量，但在 IDE 的内置终端运行，是读取不到的。
+3. **配置文件路径**：确保 `.env` 文件放在项目根目录下（与 `package.json` 同级）。
+4. **占位符未替换**：如果看到 `[config] 环境变量 ${XXX} 未定义` 的警告，请检查变量名是否拼写正确（注意大小写）。
 在 `config.json` 中，你可以使用 `${VAR_NAME}` 语法引用环境变量。例如：
 ```json
 {

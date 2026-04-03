@@ -6,14 +6,13 @@
     "provider": "openai",
     "options": {
       "baseURL": "${AI_BASE_URL}",
-      "apiKey": "${AI_API_KEY}", 
+      "apiKey": "${AI_API_KEY}",
       "model": "hunyuan-pro"
     }
   },
   "notifications": {
     "lark": {
       "enabled": true,
-      "webhook": "${LARK_WEBHOOK}",
       "secret": "${LARK_SECRET}",
       "appId": "${LARK_APP_ID}",
       "appSecret": "${LARK_APP_SECRET}",

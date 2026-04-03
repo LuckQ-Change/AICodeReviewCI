@@ -2,11 +2,43 @@ import fs from 'fs';
 import path from 'path';
 
 /**
+ * 轻量级加载 .env 文件到 process.env
+ */
+function loadDotEnv() {
+  const envPath = path.join(process.cwd(), '.env');
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf-8');
+    content.split('\n').forEach(line => {
+      const match = line.match(/^\s*([\w.\-]+)\s*=\s*(.*)?\s*$/);
+      if (match) {
+        const key = match[1];
+        let value = (match[2] || '').trim();
+        // 去除引号
+        if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
+        if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+        
+        if (!process.env[key]) {
+          process.env[key] = value;
+        }
+      }
+    });
+    console.log('[config] 已从 .env 文件加载环境变量。');
+  }
+}
+
+/**
  * 递归替换配置对象中的 ${ENV_VAR} 占位符
  */
 function replaceEnvPlaceholders(obj) {
   if (typeof obj === 'string') {
-    return obj.replace(/\${(\w+)}/g, (_, name) => process.env[name] || '');
+    return obj.replace(/\${(\w+)}/g, (_, name) => {
+      const val = process.env[name];
+      if (val === undefined) {
+        console.warn(`[config] 环境变量 \${${name}} 未定义，将保留原始占位符。`);
+        return `\${${name}}`;
+      }
+      return val;
+    });
   } else if (Array.isArray(obj)) {
     return obj.map(item => replaceEnvPlaceholders(item));
   } else if (obj !== null && typeof obj === 'object') {
@@ -20,6 +52,7 @@ function replaceEnvPlaceholders(obj) {
 }
 
 export async function loadConfig() {
+  loadDotEnv();
   const configPath = path.join(process.cwd(), 'config', 'config.json');
   let config = {};
 
@@ -39,72 +72,75 @@ export async function loadConfig() {
   // 环境变量覆盖逻辑
   // ==========================
 
-  // 1. Repo
-  if (process.env.REPO_PATH) {
+  const envMapping = {
+    'REPO_PATH': 'config.repo.path',
+    'AI_PROVIDER': 'config.model.provider',
+    'AI_API_KEY': 'config.model.options.apiKey',
+    'AI_BASE_URL': 'config.model.options.baseURL',
+    'AI_MODEL': 'config.model.options.model',
+    'LARK_ENABLED': 'config.notifications.lark.enabled',
+    'LARK_WEBHOOK': 'config.notifications.lark.webhook',
+    'LARK_SECRET': 'config.notifications.lark.secret',
+    'LARK_APP_ID': 'config.notifications.lark.appId',
+    'LARK_APP_SECRET': 'config.notifications.lark.appSecret',
+    'LARK_CHAT_ID': 'config.notifications.lark.chatId',
+    'WECOM_ENABLED': 'config.notifications.wecom.enabled',
+    'WECOM_WEBHOOK': 'config.notifications.wecom.webhook',
+    'EMAIL_ENABLED': 'config.notifications.email.enabled',
+    'EMAIL_FROM': 'config.notifications.email.from',
+    'EMAIL_SMTP_HOST': 'config.notifications.email.smtp.host',
+    'EMAIL_SMTP_PORT': 'config.notifications.email.smtp.port',
+    'EMAIL_SMTP_USER': 'config.notifications.email.smtp.user',
+    'EMAIL_SMTP_PASS': 'config.notifications.email.smtp.pass'
+  };
+
+  for (const [envKey, configPathStr] of Object.entries(envMapping)) {
+    const val = process.env[envKey];
+    if (val !== undefined) {
+      console.log(`[config] 识别到环境变量: ${envKey}`);
+      // 设置值
+      const keys = configPathStr.split('.');
+      let current = config;
+      for (let i = 0; i < keys.length - 1; i++) {
+        const key = keys[i];
+        if (key === 'config') continue;
+        current[key] = current[key] || {};
+        current = current[key];
+      }
+      const lastKey = keys[keys.length - 1];
+      if (envKey.endsWith('_ENABLED')) {
+        current[lastKey] = val === 'true';
+      } else if (envKey.endsWith('_PORT')) {
+        current[lastKey] = parseInt(val, 10);
+      } else {
+        current[lastKey] = val;
+      }
+    }
+  }
+
+  // ==========================
+  // 默认值补充
+  // ==========================
+  
+  // 1. Repo Path 默认为当前目录
+  if (!config.repo?.path || config.repo.path === '${REPO_PATH}') {
     config.repo = config.repo || {};
-    config.repo.path = process.env.REPO_PATH;
+    config.repo.path = process.cwd();
+    console.log(`[config] repo.path 未配置，已默认为当前路径: ${config.repo.path}`);
   }
 
-  // 2. AI Model
-  if (process.env.AI_PROVIDER) {
+  // 2. AI Provider 默认为 openai
+  if (!config.model?.provider || config.model.provider === '${AI_PROVIDER}') {
     config.model = config.model || {};
-    config.model.provider = process.env.AI_PROVIDER;
-  }
-  if (process.env.AI_API_KEY || process.env.AI_BASE_URL || process.env.AI_MODEL) {
-    config.model = config.model || {};
-    config.model.options = config.model.options || {};
-    if (process.env.AI_API_KEY) config.model.options.apiKey = process.env.AI_API_KEY;
-    if (process.env.AI_BASE_URL) config.model.options.baseURL = process.env.AI_BASE_URL;
-    if (process.env.AI_MODEL) config.model.options.model = process.env.AI_MODEL;
+    config.model.provider = 'openai';
+    console.log('[config] model.provider 未配置，已默认为 openai');
   }
 
-  // 3. Notifications - Lark
-  if (process.env.LARK_ENABLED !== undefined) {
-    config.notifications = config.notifications || {};
-    config.notifications.lark = config.notifications.lark || {};
-    config.notifications.lark.enabled = process.env.LARK_ENABLED === 'true';
-  }
-  if (process.env.LARK_WEBHOOK || process.env.LARK_SECRET || process.env.LARK_APP_ID || process.env.LARK_APP_SECRET || process.env.LARK_CHAT_ID) {
-    config.notifications = config.notifications || {};
-    config.notifications.lark = config.notifications.lark || {};
-    if (process.env.LARK_WEBHOOK) config.notifications.lark.webhook = process.env.LARK_WEBHOOK;
-    if (process.env.LARK_SECRET) config.notifications.lark.secret = process.env.LARK_SECRET;
-    if (process.env.LARK_APP_ID) config.notifications.lark.appId = process.env.LARK_APP_ID;
-    if (process.env.LARK_APP_SECRET) config.notifications.lark.appSecret = process.env.LARK_APP_SECRET;
-    if (process.env.LARK_CHAT_ID) config.notifications.lark.chatId = process.env.LARK_CHAT_ID;
-  }
-
-  // 4. Notifications - WeCom
-  if (process.env.WECOM_ENABLED !== undefined) {
-    config.notifications = config.notifications || {};
-    config.notifications.wecom = config.notifications.wecom || {};
-    config.notifications.wecom.enabled = process.env.WECOM_ENABLED === 'true';
-  }
-  if (process.env.WECOM_WEBHOOK) {
-    config.notifications = config.notifications || {};
-    config.notifications.wecom = config.notifications.wecom || {};
-    config.notifications.wecom.webhook = process.env.WECOM_WEBHOOK;
-  }
-
-  // 5. Notifications - Email
-  if (process.env.EMAIL_ENABLED !== undefined) {
-    config.notifications = config.notifications || {};
-    config.notifications.email = config.notifications.email || {};
-    config.notifications.email.enabled = process.env.EMAIL_ENABLED === 'true';
-  }
-  if (process.env.EMAIL_FROM) {
-    config.notifications = config.notifications || {};
-    config.notifications.email = config.notifications.email || {};
-    config.notifications.email.from = process.env.EMAIL_FROM;
-  }
-  if (process.env.EMAIL_SMTP_HOST || process.env.EMAIL_SMTP_PORT || process.env.EMAIL_SMTP_USER || process.env.EMAIL_SMTP_PASS) {
-    config.notifications = config.notifications || {};
-    config.notifications.email = config.notifications.email || {};
-    config.notifications.email.smtp = config.notifications.email.smtp || {};
-    if (process.env.EMAIL_SMTP_HOST) config.notifications.email.smtp.host = process.env.EMAIL_SMTP_HOST;
-    if (process.env.EMAIL_SMTP_PORT) config.notifications.email.smtp.port = parseInt(process.env.EMAIL_SMTP_PORT, 10);
-    if (process.env.EMAIL_SMTP_USER) config.notifications.email.smtp.user = process.env.EMAIL_SMTP_USER;
-    if (process.env.EMAIL_SMTP_PASS) config.notifications.email.smtp.pass = process.env.EMAIL_SMTP_PASS;
+  // 3. 清理未替换的占位符（避免 SDK 报错）
+  if (config.model?.options) {
+    if (config.model.options.baseURL === '${AI_BASE_URL}') delete config.model.options.baseURL;
+    if (config.model.options.apiKey === '${AI_API_KEY}') delete config.model.options.apiKey;
+    if (config.model.options.model === '${AI_MODEL}') delete config.model.options.model;
   }
 
   return config;
