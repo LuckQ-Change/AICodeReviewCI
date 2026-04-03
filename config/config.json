@@ -1,23 +1,23 @@
 {
   "repo": {
-    "path": "D:\\DDD\\AICodeReviewCI"
+    "path": "${REPO_PATH}"
   },
   "model": {
     "provider": "openai",
     "options": {
-      "baseURL": "https://api.hunyuan.cloud.tencent.com/v1",
-      "apiKey": "sk-3yK8BtlPSc1z6ZxkjZYSGLzkikM7AIfgNJsj5dQ8TABgQjgh", 
+      "baseURL": "${AI_BASE_URL}",
+      "apiKey": "${AI_API_KEY}", 
       "model": "hunyuan-pro"
     }
   },
   "notifications": {
     "lark": {
       "enabled": true,
-      "webhook": "",
-      "secret": "",
-      "appId": "cli_a944b190f1b8dbc2",
-      "appSecret": "19pcXNSJxc4C6YxF2BQjKb6sUI5ewnhW",
-      "chatId": "oc_d51da58ce6912d1cc52ddd4c10ff9f95"
+      "webhook": "${LARK_WEBHOOK}",
+      "secret": "${LARK_SECRET}",
+      "appId": "${LARK_APP_ID}",
+      "appSecret": "${LARK_APP_SECRET}",
+      "chatId": "${LARK_CHAT_ID}"
     },
     "wecom": {
       "enabled": false,

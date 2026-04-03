@@ -31,6 +31,19 @@ async function getTenantAccessToken(appId, appSecret) {
 }
 
 /**
+ * 格式化 Markdown 内容以适配飞书卡片
+ * 1. 飞书卡片 Markdown 不支持代码块语言标签 (如 ```json)
+ * 2. 确保换行符正确
+ */
+function formatMarkdownForLark(text) {
+  if (!text) return '';
+  // 去除代码块语言标签，例如 ```json -> ```
+  let formatted = text.replace(/```[a-z]*\n/gi, '```\n');
+  // 确保所有的 \n 是单换行，飞书卡片渲染有时对多换行处理不一
+  return formatted;
+}
+
+/**
  * 统一发送函数
  */
 export async function sendToLark(options) {
@@ -54,15 +67,17 @@ export async function sendToLark(options) {
     throw new Error('[lark] message 不能为空');
   }
 
+  const formattedMessage = formatMarkdownForLark(message);
+
   // =========================
   // 🟢 模式1：群机器人 webhook
   // =========================
   if (webhook) {
-    let text = message;
+    let text = formattedMessage;
 
     // @人（webhook 机器人）
     if (openId) {
-      text = `<at user_id="${openId}">${authorName}</at>\n${message}`;
+      text = `<at user_id="${openId}">${authorName}</at>\n${formattedMessage}`;
     }
 
     const payload = {
@@ -124,11 +139,11 @@ export async function sendToLark(options) {
         throw new Error('[lark] app 模式必须提供 openId 或 chatId');
       }
 
-      let text = message;
+      let text = formattedMessage;
 
       // 群里 @人
       if (chatId && openId) {
-        text = `<at user_id="${openId}">${authorName}</at>\n${message}`;
+        text = `<at user_id="${openId}">${authorName}</at>\n${formattedMessage}`;
       }
 
       const card = {

@@ -1,22 +1,23 @@
 {
   "repo": {
-    "path": "C:/path/to/your/repo"
+    "path": "${REPO_PATH}"
   },
   "model": {
     "provider": "openai",
     "options": {
-      "apiKey": "YOUR_OPENAI_API_KEY",
+      "apiKey": "${AI_API_KEY}",
+      "baseURL": "${AI_BASE_URL}",
       "model": "gpt-4o-mini"
     }
   },
   "notifications": {
     "lark": {
       "enabled": false,
-      "webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/xxxx",
-      "secret": "",
-      "appId": "",
-      "appSecret": "",
-      "chatId": ""
+      "webhook": "${LARK_WEBHOOK}",
+      "secret": "${LARK_SECRET}",
+      "appId": "${LARK_APP_ID}",
+      "appSecret": "${LARK_APP_SECRET}",
+      "chatId": "${LARK_CHAT_ID}"
     },
     "wecom": {
       "enabled": false,
@@ -25,13 +26,13 @@
     "email": {
       "enabled": false,
       "smtp": {
-        "host": "smtp.example.com",
+        "host": "${EMAIL_SMTP_HOST}",
         "port": 465,
         "secure": true,
-        "user": "noreply@example.com",
-        "pass": "YOUR_SMTP_PASSWORD"
+        "user": "${EMAIL_SMTP_USER}",
+        "pass": "${EMAIL_SMTP_PASS}"
       },
-      "from": "AI Code Review <noreply@example.com>"
+      "from": "AI Code Review <${EMAIL_FROM}>"
     },
     "reportStyle": "issues_only",
     "snippetFormat": "no_headers",

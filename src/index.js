@@ -27,11 +27,7 @@ async function runOnce(config, runContext) {
 
 async function main() {
   const config = await loadConfig();
-  // 允许环境变量覆盖部分配置，以便在CI中更灵活
-  if (process.env.REPO_PATH) {
-    config.repo = config.repo || {};
-    config.repo.path = process.env.REPO_PATH;
-  }
+
   const ONE_SHOT = process.env.ONE_SHOT === 'true' || process.env.CI === 'true';
   const REVIEW_SINCE = process.env.REVIEW_SINCE; // 支持时间戳(ms)或ISO字符串
 

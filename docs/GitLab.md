@@ -29,19 +29,26 @@ ai_code_review:
     - >
       cat > config/config.json << 'EOF'
       {
-        "repo": { "path": "$CI_PROJECT_DIR" },
-        "model": { "provider": "http", "options": { "baseURL": "$AI_HTTP_BASE_URL" } },
-        "notifications": {
-          "wecom": { "enabled": true, "webhook": "$WECOM_WEBHOOK" },
-          "lark": { "enabled": false, "webhook": "" },
-          "email": { "enabled": false, "smtp": { "host": "", "port": 465, "secure": true, "user": "", "pass": "" }, "from": "AI Code Review <noreply@example.com>" }
+        "repo": { "path": "${REPO_PATH}" },
+        "model": { 
+          "provider": "openai", 
+          "options": { 
+            "apiKey": "${AI_API_KEY}",
+            "baseURL": "${AI_BASE_URL}",
+            "model": "hunyuan-pro"
+          } 
         },
-        "mention_map": { "email_to_wecom_userid": { "dev1@example.com": "zhangsan" } },
-        "schedule": { "intervalMinutes": 0, "dailyTime": "", "cron": "" },
-        "review": { "maxSnippetsPerCommit": 2, "maxLinesPerSnippet": 20 }
+        "notifications": {
+          "lark": { 
+            "enabled": true, 
+            "appId": "${LARK_APP_ID}",
+            "appSecret": "${LARK_APP_SECRET}",
+            "chatId": "${LARK_CHAT_ID}"
+          }
+        }
       }
       EOF
-    - ONE_SHOT=true REPO_PATH="$CI_PROJECT_DIR" REVIEW_MODE=daily node src/index.js
+    - ONE_SHOT=true node src/index.js
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "pipeline"   # 允许手动触发

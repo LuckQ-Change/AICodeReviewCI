@@ -48,22 +48,33 @@ jobs:
         run: |
           cat > config/config.json << 'EOF'
           {
-            "repo": { "path": "${{ github.workspace }}" },
+            "repo": { "path": "${REPO_PATH}" },
             "model": {
               "provider": "openai",
-              "options": { "apiKey": "${{ secrets.OPENAI_API_KEY }}", "model": "gpt-4o-mini" }
+              "options": { 
+                "apiKey": "${AI_API_KEY}", 
+                "baseURL": "${AI_BASE_URL}",
+                "model": "hunyuan-pro" 
+              }
             },
             "notifications": {
-              "lark": { "enabled": true, "webhook": "${{ secrets.LARK_WEBHOOK }}" },
-              "wecom": { "enabled": false, "webhook": "" },
-              "email": { "enabled": false, "smtp": { "host": "", "port": 465, "secure": true, "user": "", "pass": "" }, "from": "AI Code Review <noreply@example.com>" }
-            },
-            "mention_map": { "email_to_lark_open_id": { "dev1@example.com": "ou_xxx" }, "email_to_wecom_userid": {} },
-            "schedule": { "intervalMinutes": 0, "dailyTime": "", "cron": "" },
-            "review": { "maxSnippetsPerCommit": 2, "maxLinesPerSnippet": 20 }
+              "lark": { 
+                "enabled": true, 
+                "appId": "${LARK_APP_ID}", 
+                "appSecret": "${LARK_APP_SECRET}",
+                "chatId": "${LARK_CHAT_ID}"
+              }
+            }
           }
           EOF
         working-directory: ./Tool/AICodeReview
+        env:
+          REPO_PATH: ${{ github.workspace }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+          LARK_CHAT_ID: ${{ secrets.LARK_CHAT_ID }}
 
       - name: Run AI Code Review (daily window)
         env:

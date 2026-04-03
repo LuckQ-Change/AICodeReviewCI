@@ -92,15 +92,80 @@ AI代码审核结果
 
 
 ## 配置说明
-参考`config/config.example.json`，主要字段：
-- `repo.path`: 需要被审核的Git仓库路径（绝对路径）
-- `model.provider`: `openai` | `ollama` | `http`
-- `model.options`: 模型的具体参数（如API Key、模型名、endpoint等）
-- `notifications`: 配置各渠道开关与webhook/SMTP信息
-- `mention_map`: 将作者邮箱映射为平台用户ID，便于@作者（可选）
-- `schedule`: 配置定时策略（间隔分钟、每日时间或cron表达式）
- - `rules.dir`: 自定义规则目录（默认 `rules`，支持绝对或相对路径）
- - `review.include` / `review.exclude`: 审核文件路径过滤规则（glob），仅匹配的文件将被纳入差异分析与片段提取；排除的文件将被跳过。
+参考 `config/config.example.json`，项目支持 **配置文件** 与 **环境变量** 混合配置，优先级：环境变量 > 配置文件。
+
+### 核心配置项
+- `repo.path`: 需要被审核的Git仓库路径（环境变量：`REPO_PATH`）
+- `model.provider`: `openai` | `ollama` | `http`（环境变量：`AI_PROVIDER`）
+- `model.options`: 
+  - `apiKey`: API密钥（环境变量：`AI_API_KEY`）
+  - `baseURL`: 服务端点（环境变量：`AI_BASE_URL`）
+  - `model`: 模型名称（环境变量：`AI_MODEL`）
+- `notifications.lark`: 
+  - `enabled`: 是否启用（环境变量：`LARK_ENABLED`）
+  - `appId`: 飞书应用ID（环境变量：`LARK_APP_ID`）
+  - `appSecret`: 飞书应用密钥（环境变量：`LARK_APP_SECRET`）
+  - `chatId`: 目标群聊ID（环境变量：`LARK_CHAT_ID`）
+- `notifications.email`: 
+  - `enabled`: 是否启用（环境变量：`EMAIL_ENABLED`）
+  - `from`: 发件人地址（环境变量：`EMAIL_FROM`）
+  - `smtp.host`: SMTP服务器（环境变量：`EMAIL_SMTP_HOST`）
+  - `smtp.port`: 端口（环境变量：`EMAIL_SMTP_PORT`）
+  - `smtp.user`: 用户名（环境变量：`EMAIL_SMTP_USER`）
+  - `smtp.pass`: 密码（环境变量：`EMAIL_SMTP_PASS`）
+
+### 如何设置环境变量
+你可以根据操作系统选择以下方式设置环境变量：
+
+#### Windows (PowerShell) - 推荐
+```powershell
+$env:AI_API_KEY="sk-xxxx"
+$env:LARK_APP_ID="cli_xxxx"
+$env:LARK_APP_SECRET="xxxx"
+node src/index.js
+```
+
+#### Windows (CMD)
+```cmd
+set AI_API_KEY=sk-xxxx
+set LARK_APP_ID=cli_xxxx
+set LARK_APP_SECRET=xxxx
+node src/index.js
+```
+
+#### Linux / macOS (Bash/Zsh)
+```bash
+export AI_API_KEY="sk-xxxx"
+export LARK_APP_ID="cli_xxxx"
+export LARK_APP_SECRET="xxxx"
+node src/index.js
+```
+
+### 动态占位符支持
+在 `config.json` 中，你可以使用 `${VAR_NAME}` 语法引用环境变量。例如：
+```json
+{
+  "model": {
+    "options": {
+      "apiKey": "${AI_API_KEY}"
+    }
+  }
+}
+```
+
+## 部署说明
+### 方案一：CI/CD 自动化部署 (推荐)
+1. 在 GitHub/GitLab 的 Secrets 中配置上述环境变量。
+2. 参考 [GitHub Actions 指南](docs/GitHub.md) 或 [GitLab CI 指南](docs/GitLab.md) 编写工作流。
+3. 利用 `ONE_SHOT=true` 模式实现触发式或定时审核。
+
+### 方案二：本地常驻运行
+1. `npm install` 安装环境。
+2. 复制 `config.example.json` 为 `config.json` 并填写必要信息。
+3. 执行 `npm start`，工具将根据 `schedule` 配置的频率循环执行。
+
+## 更新日志
+详见 [CHANGELOG.md](CHANGELOG.md)。
 
 ### 请求大小控制（避免HTTP 413）
 - 工具已默认仅向模型发送“提取的片段（snippets）”，而非整份`diff`，以降低请求体大小。
