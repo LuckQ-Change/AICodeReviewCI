@@ -24,15 +24,15 @@
       "webhook": "${WECOM_WEBHOOK}"
     },
     "email": {
-      "enabled": false,
+      "enabled": "${EMAIL_ENABLED}",
       "smtp": {
-        "host": "",
-        "port": 465,
-        "secure": true,
-        "user": "",
-        "pass": ""
+        "host": "${EMAIL_SMTP_HOST}",
+        "port": "$EMAIL_SMTP_PORT",
+        "secure": "${ENAIL_SECURE}",
+        "user": "${EMAIL_SMTP_USER}",
+        "pass": "${EMAIL_SMTP_PASS}"
       },
-      "from": "AI Code Review <noreply@example.com>"
+      "from": "${EMAIL_FROM}"
     }
   },
   "mention_map": {

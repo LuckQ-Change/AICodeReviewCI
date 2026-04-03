@@ -23,7 +23,10 @@ export async function sendEmail({ smtp, from, to, subject, text, html }) {
     console.log(`[email] 邮件发送成功: ${info.messageId}`);
     return info;
   } catch (err) {
-    console.error(`[email] 邮件发送失败: ${err.message}`);
+    console.error('邮件发送失败', {
+      error: err.message.replace(smtp.user, ''),
+      stack: err.stack
+    });
     throw err;
   }
 }
