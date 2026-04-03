@@ -2,51 +2,80 @@ import { sendToLark } from './lark.js';
 import { sendToWeCom } from './wecom.js';
 import { sendEmail } from './email.js';
 
+function mdToHtml(md) {
+  if (!md) return '';
+  let html = md
+    // 处理标题 (###, ####)
+    .replace(/^### (.*$)/gim, '<h3 style="color: #333; margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 5px;">$1</h3>')
+    .replace(/^#### (.*$)/gim, '<h4 style="color: #555; margin-top: 15px; margin-bottom: 5px;">$1</h4>')
+    // 处理加粗
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // 处理代码块 (```javascript)
+    .replace(/```javascript([\s\S]*?)```/gim, '<pre style="background: #f4f4f4; padding: 12px; border-radius: 4px; border-left: 4px solid #6c757d; font-family: Consolas, Monaco, monospace; font-size: 13px; color: #333; line-height: 1.4; margin: 10px 0; overflow-x: auto;"><code>$1</code></pre>')
+    // 处理行内代码
+    .replace(/`(.*?)`/g, '<code style="background: #f1f1f1; color: #e83e8c; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>')
+    // 处理列表
+    .replace(/^\d+\. (.*$)/gim, '<div style="margin-left: 10px; margin-bottom: 5px;">$0</div>')
+    .replace(/^- (.*$)/gim, '<div style="margin-left: 10px; margin-bottom: 5px;">• $1</div>')
+    // 处理换行 (将剩余的换行转为 <br/>)
+    .replace(/\n/g, '<br/>');
+
+  return html;
+}
+
 function buildMessage(result, config, format = 'markdown') {
   const c = result.commit;
   const style = config.notifications?.reportStyle || 'full';
   const isHtml = format === 'html';
 
+  // 渲染正文
+  const reviewHtml = isHtml ? mdToHtml(result.reviewText) : result.reviewText;
+
   // 仅问题：只显示审查建议
   if (style === 'issues_only' || style === 'issues_with_snippets') {
-    const issues = (result.reviewText || '').trim();
-    const content = issues || '（未检出问题）';
+    const content = reviewHtml || '（未检出问题）';
     if (!isHtml) return content;
     
     return `
       <div style="font-family: sans-serif; line-height: 1.6; color: #333;">
         <h2 style="color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 8px;">审查建议</h2>
-        <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; white-space: pre-wrap;">${content}</div>
+        <div style="background: #fdfdfe; padding: 15px; border-radius: 4px;">${content}</div>
       </div>
     `;
   }
 
-  // 完整模式
+  // 完整模式 - 纯文本
   if (!isHtml) {
     const header = `AI代码审核结果\n仓库提交: ${c.hash}\n作者: ${c.authorName} <${c.authorEmail}>\n时间: ${c.date}\n说明: ${c.message}`;
     return `${header}\n\n审查建议:\n${result.reviewText}`;
   }
 
-  // 邮件 HTML 样式
+  // 完整模式 - 邮件 HTML 样式
   return `
-    <div style="font-family: sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-      <div style="background: #007bff; color: white; padding: 20px;">
-        <h1 style="margin: 0; font-size: 24px;">AI 代码审核报告</h1>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+      <div style="background: #007bff; color: white; padding: 25px;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 600;">AI 代码审核报告</h1>
       </div>
-      <div style="padding: 20px;">
-        <h3 style="color: #555; border-bottom: 1px solid #eee; padding-bottom: 8px;">提交信息</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr><td style="padding: 8px 0; color: #888; width: 80px;">仓库提交</td><td style="font-family: monospace; background: #eee; padding: 2px 5px;">${c.hash}</td></tr>
-          <tr><td style="padding: 8px 0; color: #888;">作者</td><td><b>${c.authorName}</b> &lt;${c.authorEmail}&gt;</td></tr>
-          <tr><td style="padding: 8px 0; color: #888;">时间</td><td>${c.date}</td></tr>
-          <tr><td style="padding: 8px 0; color: #888;">说明</td><td>${c.message}</td></tr>
-        </table>
+      <div style="padding: 25px;">
+        <div style="margin-bottom: 30px;">
+          <h3 style="color: #444; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; margin-bottom: 15px;">🚀 提交信息</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr><td style="padding: 6px 0; color: #777; width: 90px;">仓库提交</td><td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; background: #f0f0f0; padding: 3px 8px; border-radius: 4px; color: #d63384;">${c.hash.substring(0, 8)}</td></tr>
+            <tr><td style="padding: 6px 0; color: #777;">作者</td><td><strong style="color: #333;">${c.authorName}</strong> <span style="color: #666;">&lt;${c.authorEmail}&gt;</span></td></tr>
+            <tr><td style="padding: 6px 0; color: #777;">时间</td><td style="color: #555;">${c.date}</td></tr>
+            <tr><td style="padding: 6px 0; color: #777;">说明</td><td style="color: #333; font-weight: 500;">${c.message}</td></tr>
+          </table>
+        </div>
         
-        <h3 style="color: #555; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-top: 30px;">审查建议</h3>
-        <div style="background: #fdfdfe; border-left: 4px solid #007bff; padding: 15px; margin: 10px 0; white-space: pre-wrap; font-size: 15px;">${result.reviewText}</div>
+        <div style="margin-top: 20px;">
+          <h3 style="color: #444; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; margin-bottom: 15px;">🔍 审查建议</h3>
+          <div style="background: #fff; border: 1px solid #f0f0f0; border-left: 5px solid #007bff; padding: 20px; border-radius: 4px;">
+            ${reviewHtml}
+          </div>
+        </div>
       </div>
-      <div style="background: #f8f9fa; color: #888; padding: 15px; font-size: 12px; text-align: center;">
-        此邮件由 AI Code Review CI 自动发送
+      <div style="background: #f8f9fa; color: #999; padding: 15px; font-size: 12px; text-align: center; border-top: 1px solid #eee;">
+        此邮件由 AI Code Review CI 系统自动生成并发送
       </div>
     </div>
   `;
