@@ -2,33 +2,54 @@ import { sendToLark } from './lark.js';
 import { sendToWeCom } from './wecom.js';
 import { sendEmail } from './email.js';
 
-function buildMessage(result, config) {
+function buildMessage(result, config, format = 'markdown') {
   const c = result.commit;
   const style = config.notifications?.reportStyle || 'full';
-  // 已禁用差异片段显示：不再在消息中拼接任何diff片段
+  const isHtml = format === 'html';
 
-  // 仅片段：已禁用片段显示，统一返回提示或空问题文本
-  if (style === 'snippets_only') {
-    return '（已禁用差异片段显示）';
-  }
-
-  // 仅问题：只显示审查建议，不含提交信息与片段
-  if (style === 'issues_only') {
+  // 仅问题：只显示审查建议
+  if (style === 'issues_only' || style === 'issues_with_snippets') {
     const issues = (result.reviewText || '').trim();
-    return issues || '（未检出问题）';
+    const content = issues || '（未检出问题）';
+    if (!isHtml) return content;
+    
+    return `
+      <div style="font-family: sans-serif; line-height: 1.6; color: #333;">
+        <h2 style="color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 8px;">审查建议</h2>
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; white-space: pre-wrap;">${content}</div>
+      </div>
+    `;
   }
 
-  // 问题 + 片段：不显示提交信息，仅展示问题与片段
-  if (style === 'issues_with_snippets') {
-    const issues = (result.reviewText || '').trim();
-    // 片段显示已禁用，等同于仅问题
-    return issues || '（未检出问题）';
+  // 完整模式
+  if (!isHtml) {
+    const header = `AI代码审核结果\n仓库提交: ${c.hash}\n作者: ${c.authorName} <${c.authorEmail}>\n时间: ${c.date}\n说明: ${c.message}`;
+    return `${header}\n\n审查建议:\n${result.reviewText}`;
   }
 
-  // 完整：包含提交信息、片段与建议
-  const header = `AI代码审核结果\n仓库提交: ${c.hash}\n作者: ${c.authorName} <${c.authorEmail}>\n时间: ${c.date}\n说明: ${c.message}`;
-  const body = `${header}\n\n审查建议:\n${result.reviewText}`;
-  return body;
+  // 邮件 HTML 样式
+  return `
+    <div style="font-family: sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+      <div style="background: #007bff; color: white; padding: 20px;">
+        <h1 style="margin: 0; font-size: 24px;">AI 代码审核报告</h1>
+      </div>
+      <div style="padding: 20px;">
+        <h3 style="color: #555; border-bottom: 1px solid #eee; padding-bottom: 8px;">提交信息</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr><td style="padding: 8px 0; color: #888; width: 80px;">仓库提交</td><td style="font-family: monospace; background: #eee; padding: 2px 5px;">${c.hash}</td></tr>
+          <tr><td style="padding: 8px 0; color: #888;">作者</td><td><b>${c.authorName}</b> &lt;${c.authorEmail}&gt;</td></tr>
+          <tr><td style="padding: 8px 0; color: #888;">时间</td><td>${c.date}</td></tr>
+          <tr><td style="padding: 8px 0; color: #888;">说明</td><td>${c.message}</td></tr>
+        </table>
+        
+        <h3 style="color: #555; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-top: 30px;">审查建议</h3>
+        <div style="background: #fdfdfe; border-left: 4px solid #007bff; padding: 15px; margin: 10px 0; white-space: pre-wrap; font-size: 15px;">${result.reviewText}</div>
+      </div>
+      <div style="background: #f8f9fa; color: #888; padding: 15px; font-size: 12px; text-align: center;">
+        此邮件由 AI Code Review CI 自动发送
+      </div>
+    </div>
+  `;
 }
 
 export async function notifyResults({ config, results }) {
@@ -50,24 +71,22 @@ export async function notifyResults({ config, results }) {
       continue;
     }
 
-    const message = buildMessage(r, config);
     const authorEmail = r.commit.authorEmail;
     const larkOpenId = config.mention_map?.email_to_lark_open_id?.[authorEmail];
     const wecomUserId = config.mention_map?.email_to_wecom_userid?.[authorEmail];
 
+    // 1. 飞书通知 (使用适配飞书的 Markdown)
     const larkCfg = config.notifications?.lark;
     if (larkCfg?.enabled) {
       try {
+        const larkMessage = buildMessage(r, config, 'markdown');
         await sendToLark({
-          // webhook 模式
           webhook: larkCfg.webhook,
           secret: larkCfg.secret,
-          // app 模式
           appId: larkCfg.appId,
           appSecret: larkCfg.appSecret,
           chatId: larkCfg.chatId,
-          // 通用参数
-          message,
+          message: larkMessage,
           openId: larkOpenId,
           authorName: r.commit.authorName
         });
@@ -76,31 +95,36 @@ export async function notifyResults({ config, results }) {
       }
     }
 
+    // 2. 企业微信通知 (保持 Markdown)
     const wecomCfg = config.notifications?.wecom;
-    if (wecomCfg?.enabled) {
-      if (wecomCfg.webhook) {
-        try {
-          await sendToWeCom({ webhook: wecomCfg.webhook, message, userId: wecomUserId, authorName: r.commit.authorName });
-        } catch (err) {
-          console.error('[notifiers] 企业微信发送失败:', err.response?.data || err.message);
-        }
-      } else {
-        console.warn('[notifiers] 已启用企业微信但缺少webhook，已跳过发送');
+    if (wecomCfg?.enabled && wecomCfg.webhook) {
+      try {
+        const wecomMessage = buildMessage(r, config, 'markdown');
+        await sendToWeCom({ webhook: wecomCfg.webhook, message: wecomMessage, userId: wecomUserId, authorName: r.commit.authorName });
+      } catch (err) {
+        console.error('[notifiers] 企业微信发送失败:', err.response?.data || err.message);
       }
     }
 
+    // 3. 邮件通知 (使用 HTML 格式)
     const emailCfg = config.notifications?.email;
-    if (emailCfg?.enabled) {
-      if (emailCfg.smtp?.host && emailCfg.from) {
-        try {
-          const style = config.notifications?.reportStyle || 'full';
-          const subject = ['snippets_only','issues_only','issues_with_snippets'].includes(style) ? 'AI代码审核' : `AI代码审核: ${r.commit.message}`;
-          await sendEmail({ smtp: emailCfg.smtp, from: emailCfg.from, to: authorEmail, subject, text: message });
-        } catch (err) {
-          console.error('[notifiers] 邮件发送失败:', err.message);
-        }
-      } else {
-        console.warn('[notifiers] 已启用邮件但缺少SMTP或from，已跳过发送');
+    if (emailCfg?.enabled && emailCfg.smtp?.host && emailCfg.from) {
+      try {
+        const style = config.notifications?.reportStyle || 'full';
+        const subject = ['snippets_only','issues_only','issues_with_snippets'].includes(style) ? 'AI代码审核' : `AI代码审核: ${r.commit.message}`;
+        const htmlContent = buildMessage(r, config, 'html');
+        const textContent = buildMessage(r, config, 'markdown'); // 备用纯文本
+        
+        await sendEmail({ 
+          smtp: emailCfg.smtp, 
+          from: emailCfg.from, 
+          to: authorEmail, 
+          subject, 
+          text: textContent,
+          html: htmlContent 
+        });
+      } catch (err) {
+        console.error('[notifiers] 邮件发送失败:', err.message);
       }
     }
   }
