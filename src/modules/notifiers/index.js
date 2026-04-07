@@ -11,7 +11,7 @@ export function mdToHtml(md) {
     .replace(/^#### (.*$)/gim, '<h4 style="color: #555; margin-top: 15px; margin-bottom: 5px;">$1</h4>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/`(.*?)`/g, '<code style="background: #f1f1f1; color: #e83e8c; padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>')
-    .replace(/^\d+\. (.*$)/gim, '<div style="margin-left: 10px; margin-bottom: 5px;">$0</div>')
+    .replace(/^\d+\. (.*$)/gim, '<div style="margin-left: 10px; margin-bottom: 5px;">$&</div>')
     .replace(/^- (.*$)/gim, '<div style="margin-left: 10px; margin-bottom: 5px;">- $1</div>')
     .replace(/\n/g, '<br/>');
 }

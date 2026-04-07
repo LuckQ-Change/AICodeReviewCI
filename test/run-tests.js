@@ -209,6 +209,12 @@ addTest('mdToHtml 转换基础 Markdown 结构', async () => {
   assert.equal(html.includes('<code'), true);
 });
 
+addTest('mdToHtml 不输出字面量 $0', async () => {
+  const html = mdToHtml('1. 第一项');
+  assert.equal(html.includes('$0'), false);
+  assert.equal(html.includes('1. 第一项'), true);
+});
+
 addTest('buildSmtpTransportOptions 默认不做隐式 TLS 推断', async () => {
   const options = buildSmtpTransportOptions({ host: 'smtp.example.com', port: 465 });
   assert.equal(options.secure, false);
