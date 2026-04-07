@@ -62,7 +62,7 @@
  - 片段格式：通过 `notifications.snippetFormat` 精简片段内容，支持：
    - `raw`（默认）：保留原始diff片段
    - `no_headers`：去除 `diff --git`、`@@`、`---`、`+++` 等头部行
-   - `added_only`：仅保留以 `+` 开头的新增行 sas
+   - `added_only`：仅保留以 `+` 开头的新增行
 
 > 注：当前版本已禁用在通知消息中显示差异片段。含片段的样式（如 `snippets_only`、`issues_with_snippets`）将不再展示片段内容，消息仅包含审查建议或相应提示。
 
