@@ -1,56 +1,56 @@
-import cron from 'node-cron';
+﻿import cron from 'node-cron';
 
-function parseDailyToCron(dailyTime) {
-  // HH:mm -> m H * * *
+export function parseDailyToCron(dailyTime) {
   const [HH, mm] = dailyTime.split(':');
   return `${mm} ${HH} * * *`;
 }
 
-export function scheduleJobs({ config, onTick }) {
+export function scheduleJobs({ config, onTick, schedule = cron.schedule }) {
   const now = Date.now();
   let since = now;
+  let running = false;
 
-  // intervalMinutes
+  async function runJob(jobName, nextSince) {
+    if (running) {
+      console.warn(`[scheduler] 跳过 ${jobName} 任务：上一轮执行尚未结束。`);
+      return;
+    }
+
+    running = true;
+    try {
+      await onTick(nextSince);
+      since = Date.now();
+    } catch (e) {
+      console.error(`[scheduler] ${jobName} 任务执行失败`, e);
+    } finally {
+      running = false;
+    }
+  }
+
   if (config.schedule?.intervalMinutes) {
     const m = config.schedule.intervalMinutes;
     const cronExp = `*/${m} * * * *`;
-    cron.schedule(cronExp, async () => {
-      try {
-        await onTick(since);
-        since = Date.now();
-      } catch (e) {
-        console.error('[调度器] interval 任务失败', e);
-      }
+    schedule(cronExp, async () => {
+      await runJob('interval', since);
     });
-    console.log(`[调度器] 已注册每${m}分钟运行一次`);
+    console.log(`[scheduler] 已注册每 ${m} 分钟执行一次。`);
   }
 
-  // dailyTime
   if (config.schedule?.dailyTime) {
     const cronExp = parseDailyToCron(config.schedule.dailyTime);
-    cron.schedule(cronExp, async () => {
-      try {
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        await onTick(todayStart.getTime());
-      } catch (e) {
-        console.error('[调度器] 每日任务失败', e);
-      }
+    schedule(cronExp, async () => {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      await runJob('daily', todayStart.getTime());
     });
-    console.log(`[调度器] 已注册每日 ${config.schedule.dailyTime} 运行，审核当天到此时间点的提交`);
+    console.log(`[scheduler] 已注册每日 ${config.schedule.dailyTime} 执行，审查当天提交。`);
   }
 
-  // custom cron
   if (config.schedule?.cron) {
     const cronExp = config.schedule.cron;
-    cron.schedule(cronExp, async () => {
-      try {
-        await onTick(since);
-        since = Date.now();
-      } catch (e) {
-        console.error('[调度器] cron任务失败', e);
-      }
+    schedule(cronExp, async () => {
+      await runJob('cron', since);
     });
-    console.log(`[调度器] 已注册cron表达式: ${cronExp}`);
+    console.log(`[scheduler] 已注册 cron 表达式: ${cronExp}`);
   }
 }

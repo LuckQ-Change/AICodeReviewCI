@@ -27,8 +27,8 @@
       "enabled": "${EMAIL_ENABLED}",
       "smtp": {
         "host": "${EMAIL_SMTP_HOST}",
-        "port": "$EMAIL_SMTP_PORT",
-        "secure": "${ENAIL_SECURE}",
+        "port": "${EMAIL_SMTP_PORT}",
+        "secure": "${EMAIL_SECURE}",
         "user": "${EMAIL_SMTP_USER}",
         "pass": "${EMAIL_SMTP_PASS}"
       },
@@ -40,7 +40,7 @@
     "email_to_wecom_userid": {}
   },
   "schedule": {
-    "intervalMinutes": 5,
+    "intervalMinutes": 1,
     "dailyTime": "",
     "cron": ""
   },

@@ -1,5 +1,6 @@
-import { extractSnippets } from './utils/snippets.js';
+﻿import { extractSnippets } from './utils/snippets.js';
 import { filterDiffByPaths } from './utils/diff-filter.js';
+import { normalizeReviewOutput } from './ai/review-output.js';
 
 export async function reviewCommits({ config, rules, model, commits }) {
   const results = [];
@@ -11,12 +12,14 @@ export async function reviewCommits({ config, rules, model, commits }) {
   for (const c of commits) {
     const filteredDiff = filterDiffByPaths(c.diff, include, exclude);
     const snippets = extractSnippets(filteredDiff, maxSnippets, maxLines);
-    // 若未识别到任何代码片段，则跳过模型调用（不走AI流程）
+
     if (!snippets || snippets.length === 0) {
       const usedDiffEmpty = !filteredDiff || String(filteredDiff).trim().length === 0;
       results.push({
         commit: c,
         reviewText: '',
+        structuredReview: { summary: '未识别到可审查的代码片段', issues: [] },
+        parseMode: 'skipped',
         snippets,
         usedDiffEmpty,
         skipped: true
@@ -24,9 +27,8 @@ export async function reviewCommits({ config, rules, model, commits }) {
       continue;
     }
 
-    // 为避免请求体过大（导致HTTP 413等），仅将提取的片段传给模型，而非整份diff
     const compactDiff = snippets.join('\n\n');
-    const reviewText = await model.review({
+    const rawReviewText = await model.review({
       rulesText: rules.text,
       diff: compactDiff,
       context: {
@@ -37,14 +39,19 @@ export async function reviewCommits({ config, rules, model, commits }) {
         date: c.date
       }
     });
+    const normalized = normalizeReviewOutput(rawReviewText);
 
     const usedDiffEmpty = !compactDiff || String(compactDiff).trim().length === 0;
     results.push({
       commit: c,
-      reviewText,
+      reviewText: normalized.reviewText,
+      structuredReview: normalized.structuredReview,
+      parseMode: normalized.parseMode,
+      parseError: normalized.error ? normalized.error.message : undefined,
       snippets,
       usedDiffEmpty
     });
   }
+
   return results;
 }

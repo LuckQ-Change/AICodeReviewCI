@@ -1,9 +1,6 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 import crypto from 'crypto';
 
-/**
- * 生成 webhook 签名（可选）
- */
 function genSign(secret) {
   const timestamp = Math.floor(Date.now() / 1000);
   const stringToSign = `${timestamp}\n${secret}`;
@@ -15,9 +12,6 @@ function genSign(secret) {
   return { timestamp, sign };
 }
 
-/**
- * 获取 tenant_access_token（应用机器人）
- */
 async function getTenantAccessToken(appId, appSecret) {
   const res = await axios.post(
     'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal',
@@ -30,33 +24,17 @@ async function getTenantAccessToken(appId, appSecret) {
   return res.data.tenant_access_token;
 }
 
-/**
- * 格式化 Markdown 内容以适配飞书卡片
- * 1. 飞书卡片 Markdown 不支持代码块语言标签 (如 ```json)
- * 2. 确保换行符正确
- */
 function formatMarkdownForLark(text) {
   if (!text) return '';
-  // 去除代码块语言标签，例如 ```json -> ```
-  let formatted = text.replace(/```[a-z]*\n/gi, '```\n');
-  // 确保所有的 \n 是单换行，飞书卡片渲染有时对多换行处理不一
-  return formatted;
+  return text.replace(/```[a-z]*\n/gi, '```\n');
 }
 
-/**
- * 统一发送函数
- */
 export async function sendToLark(options) {
   const {
-    // webhook 模式
     webhook,
     secret,
-
-    // app 模式
     appId,
     appSecret,
-
-    // 通用参数
     message,
     openId,
     chatId,
@@ -69,13 +47,9 @@ export async function sendToLark(options) {
 
   const formattedMessage = formatMarkdownForLark(message);
 
-  // =========================
-  // 🟢 模式1：群机器人 webhook
-  // =========================
   if (webhook) {
     let text = formattedMessage;
 
-    // @人（webhook 机器人）
     if (openId) {
       text = `<at user_id="${openId}">${authorName}</at>\n${formattedMessage}`;
     }
@@ -86,7 +60,7 @@ export async function sendToLark(options) {
         header: {
           title: {
             tag: 'plain_text',
-            content: 'AI 代码审核结果'
+            content: 'AI 代码审查结果'
           },
           template: 'blue'
         },
@@ -99,7 +73,6 @@ export async function sendToLark(options) {
       }
     };
 
-    // 签名（如果有）
     if (secret) {
       const { timestamp, sign } = genSign(secret);
       payload.timestamp = timestamp;
@@ -118,9 +91,6 @@ export async function sendToLark(options) {
     }
   }
 
-  // =========================
-  // 🔵 模式2：应用机器人 App
-  // =========================
   if (appId && appSecret) {
     try {
       const token = await getTenantAccessToken(appId, appSecret);
@@ -128,7 +98,6 @@ export async function sendToLark(options) {
       let receiveId;
       let receiveIdType;
 
-      // 优先发群
       if (chatId) {
         receiveId = chatId;
         receiveIdType = 'chat_id';
@@ -140,8 +109,6 @@ export async function sendToLark(options) {
       }
 
       let text = formattedMessage;
-
-      // 群里 @人
       if (chatId && openId) {
         text = `<at user_id="${openId}">${authorName}</at>\n${formattedMessage}`;
       }
@@ -150,7 +117,7 @@ export async function sendToLark(options) {
         header: {
           title: {
             tag: 'plain_text',
-            content: 'AI 代码审核结果'
+            content: 'AI 代码审查结果'
           },
           template: 'blue'
         },
@@ -187,8 +154,5 @@ export async function sendToLark(options) {
     }
   }
 
-  // =========================
-  // ❌ 未配置
-  // =========================
   throw new Error('[lark] 未提供 webhook 或 appId/appSecret');
 }

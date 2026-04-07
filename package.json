@@ -1,14 +1,16 @@
-{
+﻿{
   "name": "ai-code-review-ci",
   "author": "WJQ",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "private": true,
-  "description": "AI驱动的代码审核CI工具，支持规则.md、多渠道通知与定时任务",
+  "description": "AI 驱动的代码审查 CI 工具，支持 Markdown 规则、多通知渠道和定时任务。",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node src/index.js"
+    "dev": "node src/index.js",
+    "test": "node test/run-tests.js",
+    "results:query": "node scripts/query-results.js"
   },
   "dependencies": {
     "axios": "^1.7.7",
