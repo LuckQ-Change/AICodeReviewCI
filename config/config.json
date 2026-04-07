@@ -40,8 +40,8 @@
     "email_to_wecom_userid": {}
   },
   "schedule": {
-    "intervalMinutes": 1,
-    "dailyTime": "18:00",
+    "intervalMinutes": 5,
+    "dailyTime": "",
     "cron": ""
   },
   "review": {
