@@ -1,10 +1,13 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import simpleGit from 'simple-git';
+
 import { loadConfig } from '../src/modules/config.js';
-import { filterNewCommits } from '../src/modules/git-collector.js';
+import { collectCommitsSince, filterNewCommits } from '../src/modules/git-collector.js';
+import { resolveFirstRunSince, resolveReviewSince } from '../src/modules/review-since.js';
 import { parseDailyToCron, scheduleJobs } from '../src/modules/scheduler.js';
 import { mergeProcessedHashes, readState, writeState } from '../src/modules/state-store.js';
 import { auditInfo } from '../src/modules/audit-log.js';
@@ -17,6 +20,11 @@ import { buildMessage, mdToHtml, notifyResults, shouldSkipNotification } from '.
 import { normalizeReviewOutput } from '../src/modules/ai/review-output.js';
 import { filterDiffByPaths, globToRegex } from '../src/modules/utils/diff-filter.js';
 import { extractSnippets } from '../src/modules/utils/snippets.js';
+import { parseDiff, isCodeFile } from '../src/modules/static/diff-parser.js';
+import { runBuiltinStatic } from '../src/modules/static/index.js';
+import { groundIssues } from '../src/modules/issue-grounding.js';
+import { mergeIssues } from '../src/modules/issue-merge.js';
+import { loadRules } from '../src/modules/rules-loader.js';
 
 const tests = [];
 
@@ -128,10 +136,103 @@ addTest('scheduleJobs 跳过重叠 interval 执行', async () => {
   }
 });
 
+addTest('resolveReviewSince 使用调度间隔而非 state.lastRun', async () => {
+  const now = Date.parse('2026-05-25T12:00:00Z');
+  const since = resolveReviewSince({
+    now,
+    intervalMinutes: 30
+  });
+  assert.equal(since, now - 30 * 60 * 1000);
+});
+
+addTest('resolveFirstRunSince 在首次运行扩大到当天 0 点', async () => {
+  const now = Date.parse('2026-05-25T17:30:00+08:00');
+  const narrowSince = now - 60 * 1000;
+  const result = resolveFirstRunSince({
+    since: narrowSince,
+    now,
+    intervalMinutes: 1,
+    neverReviewed: true
+  });
+  assert.equal(result.widened, true);
+  assert.equal(result.useDayWindow, true);
+  const expectedDay = new Date(now);
+  expectedDay.setHours(0, 0, 0, 0);
+  assert.equal(result.since, expectedDay.getTime());
+});
+
+addTest('resolveFirstRunSince 已有审查记录时不扩大窗口', async () => {
+  const now = Date.parse('2026-05-25T17:30:00+08:00');
+  const since = now - 60 * 1000;
+  const result = resolveFirstRunSince({
+    since,
+    now,
+    intervalMinutes: 1,
+    neverReviewed: false
+  });
+  assert.equal(result.widened, false);
+  assert.equal(result.since, since);
+});
+
+addTest('resolveReviewSince 支持 daily 与显式 reviewSince', async () => {
+  const now = Date.parse('2026-05-25T15:30:00+08:00');
+  const explicit = resolveReviewSince({
+    now,
+    reviewSince: 123,
+    intervalMinutes: 60
+  });
+  assert.equal(explicit, 123);
+
+  const daily = resolveReviewSince({
+    now,
+    reviewMode: 'daily',
+    intervalMinutes: 60
+  });
+  const expected = new Date(now);
+  expected.setHours(0, 0, 0, 0);
+  assert.equal(daily, expected.getTime());
+});
+
 addTest('filterNewCommits 会过滤已处理 commit', async () => {
   const logs = [{ hash: 'a1' }, { hash: 'b2' }, { hash: 'c3' }];
   const filtered = filterNewCommits(logs, ['b2']);
   assert.deepEqual(filtered.map((item) => item.hash), ['a1', 'c3']);
+});
+
+addTest('collectCommitsSince 只抓取当前分支的提交', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aicodereviewci-git-'));
+  const originalLog = console.log;
+  const originalWarn = console.warn;
+  console.log = () => {};
+  console.warn = () => {};
+  try {
+    const git = simpleGit({ baseDir: dir });
+    await git.init();
+    await git.addConfig('user.email', 't@example.com');
+    await git.addConfig('user.name', 'tester');
+    await git.checkoutLocalBranch('main');
+    fs.writeFileSync(path.join(dir, 'a.txt'), 'a1');
+    await git.add('.');
+    await git.commit('feat: on main');
+
+    await git.checkoutLocalBranch('feature/x');
+    fs.writeFileSync(path.join(dir, 'b.txt'), 'b1');
+    await git.add('.');
+    await git.commit('feat: on feature branch');
+
+    await git.checkout('main');
+
+    const since = Date.now() - 60 * 60 * 1000;
+    const commits = await collectCommitsSince({ repo: { path: dir } }, since);
+    const messages = commits.map((c) => c.message);
+
+    assert.ok(messages.some((m) => m.includes('on main')), '应包含当前分支提交');
+    assert.ok(!messages.some((m) => m.includes('on feature branch')), '不应包含其他分支提交');
+  } finally {
+    console.log = originalLog;
+    console.warn = originalWarn;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 addTest('state-store 兼容旧格式并裁剪 processedHashes', async () => {
@@ -273,10 +374,22 @@ addTest('shouldSkipNotification 覆盖主要跳过条件', async () => {
   const skipped = shouldSkipNotification({ skipped: true, commit: { hash: 'a1' } }, { notifications: {} });
   assert.equal(skipped.skip, true);
 
-  const noSnippets = shouldSkipNotification({ snippets: [], usedDiffEmpty: false, commit: { hash: 'b2' } }, { notifications: { skipWhenNoSnippets: true } });
+  const noSnippets = shouldSkipNotification({
+    snippets: [],
+    usedDiffEmpty: false,
+    hasCodeChanges: true,
+    structuredReview: { issues: [] },
+    commit: { hash: 'b2' }
+  }, { notifications: { skipWhenNoSnippets: true }, review: { notifyOnlyWhenIssues: true } });
   assert.equal(noSnippets.skip, true);
 
-  const allowed = shouldSkipNotification({ snippets: ['@@ -1 +1 @@\n+line'], usedDiffEmpty: false, commit: { hash: 'c3' } }, { notifications: { skipWhenNoSnippets: true } });
+  const allowed = shouldSkipNotification({
+    snippets: ['@@ -1 +1 @@\n+line'],
+    usedDiffEmpty: false,
+    hasCodeChanges: true,
+    structuredReview: { issues: [{ severity: 'low', file: 'a.js', line: 1, issue: 'x', suggestion: 'y' }] },
+    commit: { hash: 'c3' }
+  }, { notifications: { skipWhenNoSnippets: true }, review: { notifyOnlyWhenIssues: true } });
   assert.equal(allowed.skip, false);
 });
 
@@ -311,7 +424,208 @@ addTest('summarizeReviewResults 统计核心指标', async () => {
     { skipped: false, parseMode: 'fallback', structuredReview: { issues: [] } }
   ]);
 
-  assert.deepEqual(summary, { commitCount: 3, skippedCount: 1, fallbackCount: 1, structuredCount: 1, issueCount: 2 });
+  assert.equal(summary.commitCount, 3);
+  assert.equal(summary.skippedCount, 1);
+  assert.equal(summary.fallbackCount, 1);
+  assert.equal(summary.structuredCount, 1);
+  assert.equal(summary.issueCount, 2);
+});
+
+addTest('parseDiff 提取 JS 新增行与行号', async () => {
+  const diff = [
+    'diff --git a/src/a.js b/src/a.js',
+    'index 111..222 100644',
+    '--- a/src/a.js',
+    '+++ b/src/a.js',
+    '@@ -1,1 +1,2 @@',
+    ' line0',
+    '+console.log(password);'
+  ].join('\n');
+
+  const parsed = parseDiff(diff);
+  assert.equal(parsed.hasCodeChanges, true);
+  assert.equal(parsed.files[0].file, 'src/a.js');
+  assert.equal(parsed.files[0].addedLines[0].line, 2);
+  assert.equal(isCodeFile('src/a.ts'), true);
+  assert.equal(isCodeFile('readme.md'), false);
+});
+
+addTest('parseDiff 识别非 JS/TS 语言为代码变更', async () => {
+  const goDiff = [
+    'diff --git a/main.go b/main.go',
+    'index 111..222 100644',
+    '--- a/main.go',
+    '+++ b/main.go',
+    '@@ -1,2 +1,3 @@',
+    ' package main',
+    '+func main() { println("hi") }'
+  ].join('\n');
+
+  const parsed = parseDiff(goDiff);
+  assert.equal(parsed.hasCodeChanges, true);
+  assert.equal(parsed.files[0].addedLines.length, 1);
+  assert.equal(isCodeFile('app/service.go'), true);
+  assert.equal(isCodeFile('lib/foo.cpp'), true);
+  assert.equal(isCodeFile('src/Program.cs'), true);
+  assert.equal(isCodeFile('notes.md'), false);
+});
+
+addTest('parseDiff 支持自定义 codeExtensions 覆盖默认集合', async () => {
+  const protoDiff = [
+    'diff --git a/api/user.proto b/api/user.proto',
+    '--- a/api/user.proto',
+    '+++ b/api/user.proto',
+    '@@ -0,0 +1,1 @@',
+    '+message User { string id = 1; }'
+  ].join('\n');
+
+  // 默认集合不含 proto
+  assert.equal(parseDiff(protoDiff).hasCodeChanges, false);
+  // 显式配置后识别为代码
+  assert.equal(parseDiff(protoDiff, { codeExtensions: ['proto'] }).hasCodeChanges, true);
+});
+
+addTest('runBuiltinStatic 仅作用于 JS/TS，不在其他语言上误报', async () => {
+  // Go 文件中的空 catch 风格代码不应触发 JS 内置规则
+  const goDiff = [
+    'diff --git a/main.go b/main.go',
+    '--- a/main.go',
+    '+++ b/main.go',
+    '@@ -0,0 +1,1 @@',
+    '+func main() { console.log(user.password) }'
+  ].join('\n');
+
+  const issues = runBuiltinStatic({ diff: goDiff, activeChecks: ['secrets-in-logs'] });
+  assert.equal(issues.length, 0);
+});
+
+addTest('runBuiltinStatic 检测敏感日志', async () => {
+  const diff = [
+    'diff --git a/src/a.js b/src/a.js',
+    '--- a/src/a.js',
+    '+++ b/src/a.js',
+    '@@ -0,0 +1,1 @@',
+    '+console.log(user.password);'
+  ].join('\n');
+
+  const issues = runBuiltinStatic({ diff, activeChecks: ['secrets-in-logs'] });
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].ruleId, 'secrets.sensitiveInLog');
+  assert.equal(issues[0].grounded, true);
+});
+
+addTest('groundIssues 丢弃不在 diff 中的 AI issue', async () => {
+  const diff = [
+    'diff --git a/src/a.js b/src/a.js',
+    '--- a/src/a.js',
+    '+++ b/src/a.js',
+    '@@ -0,0 +1,1 @@',
+    '+const x = 1;'
+  ].join('\n');
+
+  const { issues, dropped } = groundIssues([
+    {
+      severity: 'high',
+      file: 'src/other.js',
+      line: 1,
+      issue: '幻觉路径',
+      suggestion: '修复',
+      evidence: '+const x = 1;',
+      source: 'ai'
+    }
+  ], diff, { strict: true, requireEvidenceForAi: true });
+
+  assert.equal(issues.length, 0);
+  assert.equal(dropped.length, 1);
+  assert.equal(dropped[0].dropReason, 'file_not_in_diff');
+});
+
+addTest('groundIssues 保留 evidence 匹配的 AI issue', async () => {
+  const diff = [
+    'diff --git a/src/a.js b/src/a.js',
+    '--- a/src/a.js',
+    '+++ b/src/a.js',
+    '@@ -0,0 +1,1 @@',
+    '+const x = 1;'
+  ].join('\n');
+
+  const { issues } = groundIssues([
+    {
+      severity: 'low',
+      file: 'src/a.js',
+      line: 1,
+      issue: '示例',
+      suggestion: '改进',
+      evidence: '+const x = 1;',
+      source: 'ai'
+    }
+  ], diff, { strict: true, requireEvidenceForAi: true });
+
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].grounded, true);
+});
+
+addTest('mergeIssues 去重', async () => {
+  const merged = mergeIssues(
+    [{ file: 'a.js', line: 1, issue: 'x', source: 'static', ruleId: 'r1' }],
+    [{ file: 'a.js', line: 1, issue: 'x', source: 'ai' }]
+  );
+  assert.equal(merged.length, 1);
+});
+
+addTest('shouldSkipNotification 无问题时跳过', async () => {
+  const decision = shouldSkipNotification({
+    skipped: false,
+    hasCodeChanges: true,
+    structuredReview: { summary: 'ok', issues: [] },
+    snippets: ['@@\n+code']
+  }, { review: { notifyOnlyWhenIssues: true } });
+  assert.equal(decision.skip, true);
+  assert.match(decision.reason, /未发现需通知/);
+});
+
+addTest('shouldSkipNotification 有问题时发送', async () => {
+  const decision = shouldSkipNotification({
+    skipped: false,
+    hasCodeChanges: true,
+    structuredReview: {
+      issues: [{ severity: 'high', file: 'a.js', line: 1, issue: 'x', suggestion: 'y' }]
+    },
+    snippets: ['@@\n+code']
+  }, { review: { notifyOnlyWhenIssues: true } });
+  assert.equal(decision.skip, false);
+});
+
+addTest('loadRules 解析 builtin 与 ai frontmatter', async () => {
+  await runInTempProject(async (tempDir) => {
+    fs.mkdirSync(path.join(tempDir, 'rules'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'rules', 'builtin.md'), `---
+review: builtin
+checks:
+  - null-safety
+---
+# builtin
+`, 'utf-8');
+    fs.writeFileSync(path.join(tempDir, 'rules', 'ai.md'), `---
+review: ai
+---
+# 业务规则
+`, 'utf-8');
+  }, async (tempDir) => {
+    const rules = await loadRules({ rules: { dir: path.join(tempDir, 'rules') } });
+    assert.ok(rules.builtin.checks.includes('null-safety'));
+    assert.equal(rules.needsAiReview, true);
+    assert.match(rules.ai.text, /业务规则/);
+  });
+});
+
+addTest('normalizeReviewOutput 无 evidence 时在 requireEvidence 下过滤', async () => {
+  const raw = JSON.stringify({
+    summary: '问题',
+    issues: [{ severity: 'low', file: 'src/a.js', line: 1, issue: 'a', suggestion: 'b' }]
+  });
+  const normalized = normalizeReviewOutput(raw, { requireEvidence: true });
+  assert.equal(normalized.structuredReview.issues.length, 0);
 });
 
 addTest('notifyResults 返回跳过统计', async () => {

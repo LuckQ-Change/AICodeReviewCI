@@ -1,4 +1,4 @@
-﻿import OpenAI from 'openai';
+import OpenAI from 'openai';
 import { buildReviewPrompt, REVIEW_SYSTEM_PROMPT } from '../prompt.js';
 import { ProviderError } from '../../errors.js';
 
@@ -7,13 +7,13 @@ export function createOpenAIClient(options) {
   const model = options.model || 'gpt-4o-mini';
 
   return {
-    async review({ rulesText, diff, context }) {
+    async review({ rulesText, diff, context, repoContextText }) {
       try {
         const res = await client.chat.completions.create({
           model,
           messages: [
             { role: 'system', content: REVIEW_SYSTEM_PROMPT },
-            { role: 'user', content: buildReviewPrompt({ rulesText, diff, context }) }
+            { role: 'user', content: buildReviewPrompt({ rulesText, diff, context, repoContextText }) }
           ],
           temperature: 0.2,
           response_format: { type: 'json_object' }

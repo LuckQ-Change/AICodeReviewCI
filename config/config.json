@@ -45,7 +45,22 @@
     "cron": ""
   },
   "review": {
-    "maxSnippetsPerCommit": 2,
-    "maxLinesPerSnippet": 20
+    "maxSnippetsPerCommit": 20,
+    "maxLinesPerSnippet": 2000,
+    "static": {
+      "enabled": true
+    },
+    "context": {
+      "enabled": true,
+      "maxModuleHints": 30
+    },
+    "grounding": {
+      "strict": true,
+      "requireEvidenceForAi": true
+    },
+    "notifyOnlyWhenIssues": true,
+    "codeExtensions": [
+      "cs"
+    ]
   }
 }

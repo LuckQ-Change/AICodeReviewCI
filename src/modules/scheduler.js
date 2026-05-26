@@ -1,13 +1,14 @@
-﻿import cron from 'node-cron';
+import cron from 'node-cron';
 
 export function parseDailyToCron(dailyTime) {
   const [HH, mm] = dailyTime.split(':');
   return `${mm} ${HH} * * *`;
 }
 
-export function scheduleJobs({ config, onTick, schedule = cron.schedule }) {
-  const now = Date.now();
-  let since = now;
+export function scheduleJobs({ config, onTick, initialSince, schedule = cron.schedule }) {
+  const intervalMinutes = config.schedule?.intervalMinutes ?? 60;
+  const defaultSince = Date.now() - 1000 * 60 * intervalMinutes;
+  let since = Number.isFinite(initialSince) ? initialSince : defaultSince;
   let running = false;
 
   async function runJob(jobName, nextSince) {

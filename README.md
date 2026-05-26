@@ -1,4 +1,4 @@
-﻿# AI Code Review CI
+# AI Code Review CI
 
 一个基于 Node.js 的 AI 代码评审工具。它从 Git 仓库收集增量提交，按 `rules/*.md` 规则生成审查建议，并通过飞书、企业微信或邮件发送给作者。
 
@@ -12,9 +12,12 @@
 ## 核心能力
 
 - 增量收集 Git 提交，支持 `REVIEW_MODE` / `REVIEW_SINCE`
+- **混合审查**：内置静态规则（高置信）+ 条件 AI（仅 `review: ai` 的 MD 规则）
+- **准确度约束**：AI  issue 须含 `evidence` 且经 diff 锚定校验后方可通知
+- 工程上下文缓存（`state/repo-context-*.json`）提升 AI 语义审查质量
 - 片段提取与路径过滤，减少请求体体积
 - 多模型 Provider：`openai`、`ollama`、`http`
-- 多通知通道：飞书、企业微信、邮件
+- 多通知通道：飞书、企业微信、邮件；默认仅在发现问题时通知作者
 - 支持单次执行与常驻调度
 
 ## 快速开始

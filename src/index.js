@@ -1,4 +1,4 @@
-﻿import fs from 'fs';
+import fs from 'fs';
 import path from 'path';
 import { loadConfig } from './modules/config.js';
 import { loadRules } from './modules/rules-loader.js';
@@ -8,14 +8,19 @@ import { reviewCommits } from './modules/reviewer.js';
 import { notifyResults } from './modules/notifiers/index.js';
 import { scheduleJobs } from './modules/scheduler.js';
 import { mergeProcessedHashes, readState, writeState } from './modules/state-store.js';
+import { resolveFirstRunSince, resolveReviewSince } from './modules/review-since.js';
 import { auditError, auditInfo } from './modules/audit-log.js';
 import { summarizeReviewResults } from './modules/metrics.js';
 import { writeReviewResults } from './modules/result-store.js';
+import { loadOrBuildRepoContext } from './modules/context-cache.js';
 
 async function runOnce(config, runContext) {
   const startedAt = Date.now();
   const rules = await loadRules(config);
-  const model = await createModelClient(config);
+  const repoContext = rules.needsAiReview && config.review?.context?.enabled !== false
+    ? await loadOrBuildRepoContext(config)
+    : null;
+  const model = rules.needsAiReview ? await createModelClient(config) : null;
 
   const { since, processedHashes = [] } = runContext;
   auditInfo(config, 'run_started', { since, processedHashesCount: processedHashes.length });
@@ -29,7 +34,7 @@ async function runOnce(config, runContext) {
     return { count: 0, processedHashes: [] };
   }
 
-  const results = await reviewCommits({ config, rules, model, commits });
+  const results = await reviewCommits({ config, rules, model, commits, repoContext });
   const reviewSummary = summarizeReviewResults(results);
   const notificationSummary = await notifyResults({ config, results });
   // latest-results 便于快速查看最近结果，results.jsonl 便于历史检索和报表统计。
@@ -61,32 +66,47 @@ async function main() {
   const state = readState(stateFile);
 
   const now = Date.now();
-  let lastRun;
   const REVIEW_MODE = process.env.REVIEW_MODE;
 
+  let reviewSince;
   if (REVIEW_SINCE) {
     const maybeNum = Number(REVIEW_SINCE);
-    lastRun = Number.isFinite(maybeNum) ? maybeNum : Date.parse(REVIEW_SINCE);
-    if (!Number.isFinite(lastRun)) {
-      console.warn(`[AI Code Review] 无法解析 REVIEW_SINCE=${REVIEW_SINCE}，将回退到状态文件或默认时间窗口。`);
-      lastRun = undefined;
+    reviewSince = Number.isFinite(maybeNum) ? maybeNum : Date.parse(REVIEW_SINCE);
+    if (!Number.isFinite(reviewSince)) {
+      console.warn(`[AI Code Review] 无法解析 REVIEW_SINCE=${REVIEW_SINCE}，将回退到默认时间窗口。`);
+      reviewSince = undefined;
     }
   }
 
-  if (lastRun === undefined && REVIEW_MODE === 'daily') {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    lastRun = todayStart.getTime();
-  }
+  const intervalMinutes = config.schedule?.intervalMinutes ?? 60;
+  let since = resolveReviewSince({
+    now,
+    reviewSince,
+    reviewMode: REVIEW_MODE,
+    intervalMinutes
+  });
 
-  if (lastRun === undefined) {
-    // 首次运行优先沿用状态文件，否则回退到默认时间窗口。
-    lastRun = now - 1000 * 60 * (config.schedule?.intervalMinutes ?? 60);
-    if (state.lastRun) lastRun = state.lastRun;
+  const neverReviewed = state.processedHashes.length === 0;
+  const firstRunWindow = resolveFirstRunSince({
+    since,
+    now,
+    intervalMinutes,
+    neverReviewed,
+    reviewSince,
+    reviewMode: REVIEW_MODE
+  });
+  since = firstRunWindow.since;
+  if (firstRunWindow.widened) {
+    const windowDesc = firstRunWindow.useDayWindow
+      ? '当天 0 点起'
+      : `最近 ${firstRunWindow.lookbackMinutes} 分钟`;
+    console.log(
+      `[AI Code Review] 首次运行（尚无已审查提交），查询范围扩大到${windowDesc}（schedule.intervalMinutes=${intervalMinutes}）。`
+    );
   }
 
   const firstRun = await runOnce(config, {
-    since: lastRun,
+    since,
     processedHashes: state.processedHashes
   });
 
@@ -99,10 +119,11 @@ async function main() {
   if (!ONE_SHOT) {
     scheduleJobs({
       config,
-      onTick: async (since) => {
+      initialSince: since,
+      onTick: async (tickSince) => {
         const currentState = readState(stateFile);
         const result = await runOnce(config, {
-          since,
+          since: tickSince,
           processedHashes: currentState.processedHashes
         });
 

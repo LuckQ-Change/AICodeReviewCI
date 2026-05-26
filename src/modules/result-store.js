@@ -20,10 +20,13 @@ function sanitizeResult(result) {
     },
     skipped: Boolean(result.skipped),
     parseMode: result.parseMode || 'unknown',
+    reviewPath: result.reviewPath,
     parseError: result.parseError,
     reviewText: result.reviewText || '',
     structuredReview: result.structuredReview || { summary: '', issues: [] },
-    snippets: Array.isArray(result.snippets) ? result.snippets : []
+    snippets: Array.isArray(result.snippets) ? result.snippets : [],
+    hasCodeChanges: result.hasCodeChanges,
+    groundingStats: result.groundingStats
   };
 }
 

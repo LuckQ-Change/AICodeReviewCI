@@ -1,4 +1,4 @@
-﻿import axios from 'axios';
+import axios from 'axios';
 import { buildReviewPrompt, REVIEW_SYSTEM_PROMPT } from '../prompt.js';
 import { ConfigError, ProviderError } from '../../errors.js';
 
@@ -21,14 +21,14 @@ export function createHttpClient(options) {
 
   const targetURL = payloadFormat === 'openai_chat' ? `${base}/chat/completions` : base;
 
-  function buildPayload({ rulesText, diff, context }) {
+  function buildPayload({ rulesText, diff, context, repoContextText }) {
     if (payloadFormat === 'openai_chat') {
       if (!model) throw new ConfigError('HTTP(openai_chat) 需要配置 options.model');
       return {
         model,
         messages: [
           { role: 'system', content: REVIEW_SYSTEM_PROMPT },
-          { role: 'user', content: buildReviewPrompt({ rulesText, diff, context }) }
+          { role: 'user', content: buildReviewPrompt({ rulesText, diff, context, repoContextText }) }
         ],
         temperature,
         response_format: { type: 'json_object' }
@@ -43,9 +43,9 @@ export function createHttpClient(options) {
   }
 
   return {
-    async review({ rulesText, diff, context }) {
+    async review({ rulesText, diff, context, repoContextText }) {
       try {
-        const payload = buildPayload({ rulesText, diff, context });
+        const payload = buildPayload({ rulesText, diff, context, repoContextText });
         const res = await axios.post(targetURL, payload, { headers, timeout });
         if (payloadFormat === 'openai_chat') {
           const data = res.data;

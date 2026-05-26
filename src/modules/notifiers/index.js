@@ -1,4 +1,4 @@
-﻿import { sendToLark } from './lark.js';
+import { sendToLark } from './lark.js';
 import { sendToWeCom } from './wecom.js';
 import { sendEmail } from './email.js';
 import { retryAsync } from '../retry.js';
@@ -24,11 +24,15 @@ function buildStructuredIssueLines(result) {
 
   const lines = [result.structuredReview?.summary || '发现以下问题：', ''];
   issues.forEach((issue, index) => {
+    const tag = issue.source === 'static' ? '[静态] ' : issue.source === 'ai' ? '[AI] ' : '';
     lines.push(
-      `${index + 1}. [${issue.severity}] ${issue.file}:${issue.line}`,
+      `${index + 1}. ${tag}[${issue.severity}] ${issue.file}:${issue.line}`,
       `问题: ${issue.issue}`,
       `建议: ${issue.suggestion}`
     );
+    if (issue.evidence) {
+      lines.push(`依据: ${issue.evidence}`);
+    }
   });
   return lines.join('\n');
 }
@@ -93,8 +97,20 @@ export function shouldSkipNotification(result, config) {
     return { skip: true, reason: '审查阶段标记为未识别到代码片段' };
   }
 
+  if (result.hasCodeChanges === false) {
+    return { skip: true, reason: '提交无代码文件变更' };
+  }
+
+  const notifyOnlyWhenIssues = config.review?.notifyOnlyWhenIssues
+    ?? config.notifications?.notifyOnlyWhenIssues
+    ?? true;
+  const issueCount = result.structuredReview?.issues?.length || 0;
+  if (notifyOnlyWhenIssues && issueCount === 0) {
+    return { skip: true, reason: '审查未发现需通知的问题' };
+  }
+
   const skipWhenNoSnippets = config.notifications?.skipWhenNoSnippets ?? true;
-  if (skipWhenNoSnippets && (!result.snippets || result.snippets.length === 0)) {
+  if (skipWhenNoSnippets && issueCount === 0 && (!result.snippets || result.snippets.length === 0)) {
     return { skip: true, reason: '未提取到有效代码片段' };
   }
 

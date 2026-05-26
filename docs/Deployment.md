@@ -110,6 +110,18 @@ node src/index.js
 - `review.maxLinesPerSnippet`
 - `review.include`
 - `review.exclude`
+- `review.codeExtensions`：判定“代码文件”的扩展名列表（决定提交是否进入审查）。默认已覆盖常见语言（JS/TS、Java、Go、C/C++、C#、Python、Rust 等）。仅当默认集合未包含目标语言时才需配置，例如 `["go", "proto"]`；留空或省略则使用默认集合。
+
+## 抓取分支
+
+- 默认**自动抓取目标仓库当前所处的分支**（`HEAD` 所在分支），并一并纳入其远程跟踪分支（如 `origin/<branch>`），以便捕获已推送但本地未合并的提交；不会再扫描所有分支。
+- `repo.branch`：显式指定要审查的分支，覆盖自动检测。例如：
+
+  ```json
+  { "repo": { "path": "${REPO_PATH}", "branch": "develop" } }
+  ```
+
+  留空或省略则按当前分支自动抓取。detached HEAD 且未配置该项时，回退为按当前 `HEAD` 抓取。
 
 ## 规则文件
 
