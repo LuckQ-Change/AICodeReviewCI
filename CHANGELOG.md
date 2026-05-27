@@ -1,4 +1,14 @@
 
+## [Unreleased]
+### 新增
+- **多语言代码识别**：代码文件判定不再局限于 JS/TS，内置宽默认扩展名（Java、Go、C/C++、C#、Python、Rust 等），并支持 `review.codeExtensions` 自定义覆盖。修复了非 JS/TS 提交被误判为“未识别到代码片段”而跳过审查的问题。
+- **按当前分支抓取**：默认自动审查目标仓库当前所处分支（含远程跟踪分支 `origin/<branch>`），不再扫描全部分支；可用 `repo.branch` 显式指定。
+- **工程索引**：首次审核构建 `符号→文件` 索引（函数/方法/类型等定义），带进度输出并缓存于 `state/project-index-*.json`，为 AI 提供跨文件线索。
+- **高精度提示词**：明确告知模型只看到局部 diff 与索引摘要；对资源释放、变量使用、跨文件契约等全局性质问题，若相关符号在索引中出现于其他文件则不臆断缺陷，降低误判。
+
+### 配置
+- 新增 `review.codeExtensions`、`repo.branch`、`review.context.index`（`enabled` / `maxFiles` / `maxSymbolsPerFile` / `exclude`）。
+
 ## [1.0.1] - 2026-04-07
 ### 正式版本
 ### 新增

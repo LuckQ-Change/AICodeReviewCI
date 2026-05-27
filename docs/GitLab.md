@@ -55,6 +55,12 @@ ai_code_review:
 - 手动补审：在 Web 触发时附带 `REVIEW_SINCE`
 - Push 审查：新增单独 job，用 `rules: if $CI_PIPELINE_SOURCE == "push"`
 
+## 分支与工程索引
+
+- 工具默认审查**当前检出的分支**；如需固定审查某分支，用 `repo.branch` 显式指定。
+- **首次运行会构建工程索引**（扫描源文件、提取符号），打印进度日志并写入 `state/`。
+- 上面的 `cache` 已包含 `state/` 目录，工程索引与增量状态会一并缓存复用，后续运行命中缓存不再重建（仅源文件增删时重建）。
+
 ## 常见问题
 
 ### CI Variables 没生效

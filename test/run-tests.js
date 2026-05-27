@@ -21,6 +21,7 @@ import { normalizeReviewOutput } from '../src/modules/ai/review-output.js';
 import { filterDiffByPaths, globToRegex } from '../src/modules/utils/diff-filter.js';
 import { extractSnippets } from '../src/modules/utils/snippets.js';
 import { parseDiff, isCodeFile } from '../src/modules/static/diff-parser.js';
+import { buildProjectIndex, extractSymbols, formatProjectIndexForPrompt } from '../src/modules/project-index.js';
 import { runBuiltinStatic } from '../src/modules/static/index.js';
 import { groundIssues } from '../src/modules/issue-grounding.js';
 import { mergeIssues } from '../src/modules/issue-merge.js';
@@ -512,6 +513,60 @@ addTest('runBuiltinStatic 检测敏感日志', async () => {
   assert.equal(issues.length, 1);
   assert.equal(issues[0].ruleId, 'secrets.sensitiveInLog');
   assert.equal(issues[0].grounded, true);
+});
+
+addTest('extractSymbols 提取定义符号但忽略局部变量', async () => {
+  const content = [
+    'func CloseResource(h *Handle) {}',
+    'class Widget {}',
+    'public static int Add(int a, int b) { return a + b; }',
+    'const localVar = 1;',
+    'let another = 2;'
+  ].join('\n');
+  const syms = extractSymbols(content);
+  assert.ok(syms.includes('CloseResource'));
+  assert.ok(syms.includes('Widget'));
+  assert.ok(syms.includes('Add'));
+  assert.ok(!syms.includes('localVar'), '局部变量不应被索引');
+  assert.ok(!syms.includes('another'), '局部变量不应被索引');
+});
+
+addTest('buildProjectIndex 建立跨文件符号映射并排除依赖目录', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aicodereviewci-idx-'));
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    const git = simpleGit({ baseDir: dir });
+    await git.init();
+    await git.addConfig('user.email', 't@example.com');
+    await git.addConfig('user.name', 'tester');
+
+    fs.mkdirSync(path.join(dir, 'pkg'), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'pkg', 'res.go'),
+      'package pkg\nfunc CloseResource(h *Handle) {\n  h.free()\n}\n'
+    );
+    fs.writeFileSync(
+      path.join(dir, 'main.go'),
+      'package main\nfunc main() {\n  h := open()\n  CloseResource(h)\n}\n'
+    );
+    fs.mkdirSync(path.join(dir, 'node_modules', 'x'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'node_modules', 'x', 'i.js'), 'function CloseResource(){}\n');
+
+    await git.add('.');
+    const idx = await buildProjectIndex(dir, {});
+
+    // CloseResource 只在 pkg/res.go 定义，node_modules 中的同名定义被忽略
+    assert.deepEqual(idx.symbols.CloseResource, ['pkg/res.go']);
+    assert.ok(idx.files.every((f) => !f.path.includes('node_modules')), '依赖目录应被排除');
+
+    const diff = 'diff --git a/main.go b/main.go\n@@ -1 +1 @@\n+  CloseResource(h)';
+    const clue = formatProjectIndexForPrompt(idx, { diff });
+    assert.match(clue, /CloseResource: pkg\/res\.go/);
+  } finally {
+    console.log = originalLog;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 addTest('groundIssues 丢弃不在 diff 中的 AI issue', async () => {

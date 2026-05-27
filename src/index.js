@@ -13,12 +13,15 @@ import { auditError, auditInfo } from './modules/audit-log.js';
 import { summarizeReviewResults } from './modules/metrics.js';
 import { writeReviewResults } from './modules/result-store.js';
 import { loadOrBuildRepoContext } from './modules/context-cache.js';
+import { loadOrBuildProjectIndex } from './modules/project-index.js';
 
 async function runOnce(config, runContext) {
   const startedAt = Date.now();
   const rules = await loadRules(config);
-  const repoContext = rules.needsAiReview && config.review?.context?.enabled !== false
-    ? await loadOrBuildRepoContext(config)
+  const contextEnabled = rules.needsAiReview && config.review?.context?.enabled !== false;
+  const repoContext = contextEnabled ? await loadOrBuildRepoContext(config) : null;
+  const projectIndex = contextEnabled
+    ? await loadOrBuildProjectIndex(config, { log: (msg) => console.log(msg) })
     : null;
   const model = rules.needsAiReview ? await createModelClient(config) : null;
 
@@ -34,7 +37,7 @@ async function runOnce(config, runContext) {
     return { count: 0, processedHashes: [] };
   }
 
-  const results = await reviewCommits({ config, rules, model, commits, repoContext });
+  const results = await reviewCommits({ config, rules, model, commits, repoContext, projectIndex });
   const reviewSummary = summarizeReviewResults(results);
   const notificationSummary = await notifyResults({ config, results });
   // latest-results 便于快速查看最近结果，results.jsonl 便于历史检索和报表统计。

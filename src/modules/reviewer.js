@@ -6,8 +6,9 @@ import { runBuiltinStatic } from './static/index.js';
 import { groundIssues } from './issue-grounding.js';
 import { mergeIssues, buildStructuredReviewFromIssues } from './issue-merge.js';
 import { formatRepoContextForPrompt, loadOrBuildRepoContext } from './context-cache.js';
+import { loadOrBuildProjectIndex, formatProjectIndexForPrompt } from './project-index.js';
 
-export async function reviewCommits({ config, rules, model, commits, repoContext }) {
+export async function reviewCommits({ config, rules, model, commits, repoContext, projectIndex }) {
   const results = [];
   const maxSnippets = config.review?.maxSnippetsPerCommit ?? 2;
   const maxLines = config.review?.maxLinesPerSnippet ?? 20;
@@ -21,11 +22,18 @@ export async function reviewCommits({ config, rules, model, commits, repoContext
   };
   const requireEvidence = groundingOpts.requireEvidenceForAi;
 
+  const contextEnabled = rules.needsAiReview && config.review?.context?.enabled !== false;
+
   let cachedContext = repoContext;
-  if (rules.needsAiReview && !cachedContext && config.review?.context?.enabled !== false) {
+  if (contextEnabled && !cachedContext) {
     cachedContext = await loadOrBuildRepoContext(config);
   }
-  const repoContextText = formatRepoContextForPrompt(cachedContext);
+  const baseContextText = formatRepoContextForPrompt(cachedContext);
+
+  let index = projectIndex;
+  if (contextEnabled && !index) {
+    index = await loadOrBuildProjectIndex(config, { log: (msg) => console.log(msg) });
+  }
 
   for (const c of commits) {
     const filteredDiff = filterDiffByPaths(c.diff, include, exclude);
@@ -68,6 +76,8 @@ export async function reviewCommits({ config, rules, model, commits, repoContext
 
     if (canRunAi) {
       const compactDiff = snippets.join('\n\n');
+      const indexClueText = index ? formatProjectIndexForPrompt(index, { diff: filteredDiff }) : '';
+      const repoContextText = [baseContextText, indexClueText].filter(Boolean).join('\n\n');
       try {
         const rawReviewText = await model.review({
           rulesText: rules.ai?.text || rules.text,

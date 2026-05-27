@@ -11,6 +11,14 @@
 - `state/latest-results.json`：最近一次运行的完整快照
 - `state/results.jsonl`：历史结果追加文件，适合筛选、统计和后续报表
 
+## 状态与缓存文件
+
+- `state/last_run.json`：上次运行时间与 `processedHashes`（增量去重）
+- `state/repo-context-*.json`：工程上下文缓存（按 `package.json` 签名失效）
+- `state/project-index-*.json`：工程索引缓存（按源文件集合签名失效，新增/删除文件时重建）
+
+> 首次审核会构建工程索引并打印进度日志，耗时随仓库规模增加；缓存 `state/` 目录可避免每次重建。
+
 ## 本地查询
 
 按严重级别筛选：
@@ -63,6 +71,17 @@ npm run results:query -- --results-dir state
 - 检查飞书 / 企业微信 webhook 或 App 配置
 - 检查邮件 SMTP 联通性和认证
 - 查看 `state/audit.log` 与控制台错误日志
+
+### 提交有代码却提示“未识别到代码片段”
+
+- 多为目标语言扩展名不在白名单：用 `review.codeExtensions` 增补（默认已覆盖常见语言）
+- 确认 `review.include` / `review.exclude` 未把变更文件过滤掉
+
+### AI 误判偏多（如资源未释放/变量未使用）
+
+- 确认 `review.context.index.enabled` 为 `true`，且日志中出现工程索引构建/命中
+- 检查相关释放/清理函数是否被索引（仅函数/方法/类型等定义会进索引，局部变量不进）
+- 必要时通过 `review.context.index.exclude` 收敛索引范围，或调大 `maxFiles`
 
 ## 回滚建议
 

@@ -52,7 +52,12 @@
     },
     "context": {
       "enabled": true,
-      "maxModuleHints": 30
+      "maxModuleHints": 30,
+      "index": {
+        "enabled": true,
+        "maxFiles": 3000,
+        "maxSymbolsPerFile": 40
+      }
     },
     "grounding": {
       "strict": true,
